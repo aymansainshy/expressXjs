@@ -1,6 +1,6 @@
 
 import "reflect-metadata";
-import express, { Application, Request, Response } from 'express';
+import express, { Express, Request, Response } from 'express';
 import { inject } from 'tsyringe';
 import { AppRouter } from "@expressX/core/routing";
 import { Scanner } from "@expressX/core/scanner";
@@ -20,7 +20,7 @@ class Kernel {
 
 export abstract class ExpressX extends Kernel {
 
-  protected app!: Application;
+  protected app!: Express;
   private fullPrefix: string = '';
   private initialized = false;
 
@@ -38,7 +38,7 @@ export abstract class ExpressX extends Kernel {
   /**
    * Framework-only app creation & wiring
    */
-  protected async createApp(config?: Config): Promise<Application> {
+  protected async createApp(config?: Config): Promise<Express> {
     if (this.initialized) return this.app;
 
     // 1. Pre-Init (Async tasks like DB)
@@ -76,10 +76,10 @@ export abstract class ExpressX extends Kernel {
 
   /** Lifecycle Hooks */
   protected abstract preInit(): Promise<void>;
-  protected abstract onInit(app: Application): void;
+  protected abstract onInit(app: Express): void;
 
   /** Default 404 Implementation - Can be overridden */
-  protected onNotFound(app: Application): void {
+  protected onNotFound(app: Express): void {
     app.use((req: Request, res: Response) => {
       res.status(404).json({
         status: 404,
@@ -90,7 +90,7 @@ export abstract class ExpressX extends Kernel {
   }
 
   /** Default Post-Init Implementation */
-  protected postInit(app: Application): void {
+  protected postInit(app: Express): void {
     const routes = app._router.stack
       .filter((r: any) => r.route)
       .map((r: any) => r.route.path);
