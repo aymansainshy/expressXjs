@@ -1,0 +1,46 @@
+{
+  "name": "@expressx/core",
+  "version": "1.0.0",
+  "description": "A lightweight, object-oriented, decorator-based framework on top of Express.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc && chmod +x dist/bin/cli.js",
+    "watch": "tsc -w",
+    "prepare": "npm run build",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "expressx": "./dist/bin/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./decorators": {
+      "import": "./dist/decorators/index.js",
+      "types": "./dist/decorators/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "express": "^4.19.2",
+    "glob": "^10.3.10",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.8.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.2"
+  },
+  "author": "Ayman",
+  "license": "ISC"
+}
