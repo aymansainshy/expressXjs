@@ -36,11 +36,7 @@ export class AppRouter {
 
         // (appRouter as any)[method](fullPath, handler);                 
         (appRouter as any)[method](fullPath, async (req: Request, res: Response, next: NextFunction) => {
-          try {
-            await builtPipeline(req, res, next);
-          } catch (err) {
-            next(err);
-          }
+          return await builtPipeline(req, res, next);
         });
 
 
@@ -86,7 +82,11 @@ export class AppRouter {
 
       const runPipeline = async (): Promise<any> => {
         i++;
-        if (i >= pipeline.length) runInterceptors();
+
+        if (i >= pipeline.length) {
+          // const resutl = await runInterceptors();
+          return HttpResponseHandler.handler(() => runInterceptors(), res, next);
+        }
 
         const step = pipeline[i];
 
@@ -115,8 +115,9 @@ export class AppRouter {
         }
 
         let result;
+
         try {
-          result = await callController();   // 🔥 error propagates here
+          result = await callController();
         } catch (err) {
           // ERROR hooks (reverse order)
           for (const i of [...instances].reverse()) {
@@ -141,6 +142,7 @@ export class AppRouter {
 
       const callController = async () => {
         const args: any[] = new Array(paramMeta.length).fill(undefined);
+
         for (const meta of paramMeta) {
           switch (meta.type) {
             case ParamType.PARAM:
@@ -157,11 +159,7 @@ export class AppRouter {
               break;
           }
         }
-        return HttpResponseHandler.handler(
-          async () => instance[handlerName](...args),
-          res,
-          next
-        );
+        return instance[handlerName](...args);
       };
 
 
