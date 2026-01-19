@@ -1,4 +1,5 @@
-export const ROUTES_METADATA = Symbol('ROUTES_METADATA');
+import { ROUTES_METADATA } from "@expressX/core/common";
+
 
 export interface RouteDefinition {
   path: string;

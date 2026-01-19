@@ -20,9 +20,17 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./constants": {
+      "import": "./dist/constants/constants.js",
+      "types": "./dist/constants/constants.d.ts"
+    },
     "./decorators": {
       "import": "./dist/decorators/index.js",
       "types": "./dist/decorators/index.d.ts"
+    },
+    "./http": {
+      "import": "./dist/http/index.js",
+      "types": "./dist/http/index.d.ts"
     }
   },
   "dependencies": {
