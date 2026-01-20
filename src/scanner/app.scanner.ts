@@ -6,10 +6,24 @@ import { injectable } from "tsyringe";
 @injectable()
 export class Scanner {
   constructor() { }
+
+
+  private async scanConfigs(configSource?: Map<string, any> | NodeJS.ProcessEnv): Promise<void> {
+    // Future implementation for configs
+  }
+
+  private async scanGlobalErrorHanler(): Promise<void> {
+    // Future implementation for error handlers
+  }
+
+  private async scanGlobalInterceptor(): Promise<void> {
+    // Future implementation for interceptors
+  }
+
   /**
-   * Logic to find and import controller files automatically
-   */
-  public async scanControllers(): Promise<void> {
+  * Logic to find and import controller files automatically
+  */
+  private async scanControllers(): Promise<void> {
     const srcPath = path.join(process.cwd(), 'src');
     const pattern = path.join(srcPath, '**/*.{ts,js}').replace(/\\/g, '/');
     const files = await glob(pattern, {
@@ -20,4 +34,13 @@ export class Scanner {
     }
   }
 
+
+  public async scanAll(configSource?: Map<string, any> | NodeJS.ProcessEnv): Promise<void> {
+    await Promise.all([
+      this.scanConfigs(configSource),
+      this.scanGlobalErrorHanler(),
+      this.scanGlobalInterceptor(),
+      this.scanControllers()
+    ]);
+  }
 }

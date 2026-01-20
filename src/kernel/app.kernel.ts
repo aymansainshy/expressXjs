@@ -1,68 +1,66 @@
 
 import "reflect-metadata";
 import express, { Express, Request, Response } from 'express';
-import { inject } from 'tsyringe';
+import { container, inject, injectable } from 'tsyringe';
 import { AppRouter } from "@expressX/core/routing";
 import { Scanner } from "@expressX/core/scanner";
+import { createServer } from "http";
 
-export interface Config {
+export interface Options {
   prefix?: string;
   version?: string;
+  configSource?: Map<string, any> | NodeJS.ProcessEnv;
 }
 
+@injectable()
 class Kernel {
-  constructor(
-    @inject(AppRouter) protected appRouter: AppRouter,
-    @inject(Scanner) protected scanner: Scanner
-  ) { }
-}
-
-
-export abstract class ExpressX extends Kernel {
-
   protected app!: Express;
-  private fullPrefix: string = '';
   private initialized = false;
 
-  /**
-   * Handles the prefixing logic based on user config
-   */
-  protected preConfig(config?: Config): void {
-    this.app
-    const prefix = config?.prefix ?? '/api';
-    const version = config?.version ?? 'v1';
-    // Combines to /api/v1 by default
-    this.fullPrefix = `/${prefix}/${version}`.replace(/\/+/g, '/');
-  }
+  constructor(
+    @inject(Scanner) protected scanner: Scanner,
+  ) { }
 
-  /**
-   * Framework-only app creation & wiring
-   */
-  protected async createApp(config?: Config): Promise<Express> {
+  public async start(options?: Options): Promise<Express> {
     if (this.initialized) return this.app;
 
-    // 1. Pre-Init (Async tasks like DB)
-    await this.preInit();
+    // 1. Scan for controllers, configs, etc.
+    await this.scanner.scanAll(options?.configSource);
 
-    // 2. Pre-Config (Setup prefix/versioning)
-    this.preConfig(config);
-
+    // 2. Create Express App
     const app = express();
     this.app = app;
 
-    // 3. Discovery (Load controllers)
-    await this.scanner.scanControllers();
+    this.initialized = true;
+    return this.app;
+  }
+}
+
+
+export abstract class ExpressX {
+  /**
+   * Framework-only app creation & wiring
+   */
+  protected async createApp(options?: Options): Promise<Express> {
+    // 0. Start Kernel
+    const kernel: Kernel = container.resolve<Kernel>(Kernel);
+    const app: Express = await kernel.start(options);
+
+    // 1. Pre-Init (Async tasks like DB)
+    await this.preInit();
 
     // 4. Initialization (User middlewares)
     this.onInit(app);
 
     // 5. Routing
-    app.use(this.fullPrefix, this.appRouter.getRouter());
+    const appRouter: AppRouter = container.resolve<AppRouter>(AppRouter);
+    app.use(appRouter.getRouter(options));
 
     // 6. Handle 404s
     this.onNotFound(app);
 
     // 7. Global Error Handling
+    // const globalErrorHandler = container.resolve<GlobalErrorHandler>(GlobalErrorHandler);
     app.use((err: any, req: any, res: any, next: any) => {
       // this.errorHandler.handleError(err, req, res, next);
     });
@@ -70,7 +68,7 @@ export abstract class ExpressX extends Kernel {
     // 8. Final hook
     this.postInit(app);
 
-    this.initialized = true;
+
     return app;
   }
 
@@ -99,4 +97,25 @@ export abstract class ExpressX extends Kernel {
   }
 
   public abstract bootstrap(port: number): Promise<void>;
+}
+
+
+
+
+
+
+export class Application extends ExpressX {
+  protected preInit(): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+  protected onInit(app: Express): void {
+    throw new Error("Method not implemented.");
+  }
+  public async bootstrap(port: number): Promise<void> {
+    const app: Express = await this.createApp();
+    const server = createServer(app);
+    server.listen(port, () => {
+      console.log(`[ExpressX] Server running on http://localhost:${port}`);
+    });
+  }
 }
