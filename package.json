@@ -19,26 +19,32 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
+      "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./constants": {
       "import": "./dist/constants/constants.js",
+      "require": "./dist/constants/constants.js",
       "types": "./dist/constants/constants.d.ts"
     },
     "./decorators": {
       "import": "./dist/decorators/index.js",
+      "require": "./dist/decorators/index.js",
       "types": "./dist/decorators/index.d.ts"
     },
     "./http": {
       "import": "./dist/http/index.js",
+      "require": "./dist/http/index.js",
       "types": "./dist/http/index.d.ts"
     },
     "./common": {
       "import": "./dist/common/index.js",
+      "require": "./dist/common/index.js",
       "types": "./dist/common/index.d.ts"
     },
     "./framework": {
       "import": "./dist/framework/index.js",
+      "require": "./dist/framework/index.js",
       "types": "./dist/framework/index.d.ts"
     }
   },
