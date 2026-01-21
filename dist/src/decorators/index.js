@@ -15,4 +15,4 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./controller.decorator"), exports);
-__exportStar(require("./request.decorator"), exports);
+__exportStar(require("./methods.decorator"), exports);

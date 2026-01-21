@@ -1,5 +1,6 @@
-import { Ctx } from "@expressX/core/common";
-import { Request } from "express";
+import { Ctx } from "../../common";
+
+
 
 export abstract class Guard {
   abstract canActivate(ctx: Ctx): Promise<boolean> | boolean;

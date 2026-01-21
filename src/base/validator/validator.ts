@@ -1,4 +1,5 @@
-import { Ctx } from "@expressX/core/common";
+import { Ctx } from "../../common";
+
 
 export abstract class Validator {
   abstract validate(ctx: Ctx): Promise<void> | void;

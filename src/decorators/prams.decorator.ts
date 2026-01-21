@@ -1,4 +1,5 @@
-import { PARAM_METADATA } from "@expressX/core/common";
+import { PARAM_METADATA } from "../common";
+
 
 
 export enum ParamType {

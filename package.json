@@ -1,14 +1,15 @@
 {
   "name": "@expressx/core",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A lightweight, object-oriented, decorator-based framework on top of Express.js",
   "type": "commonjs",
   "scripts": {
-    "build": "tsc && chmod +x dist/bin/cli.js",
+    "build": "tsc",
     "watch": "tsc -w",
     "prepare": "npm run build",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "dev": "ts-node src/examples/index.ts"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -31,6 +32,14 @@
     "./http": {
       "import": "./dist/http/index.js",
       "types": "./dist/http/index.d.ts"
+    },
+    "./common": {
+      "import": "./dist/common/index.js",
+      "types": "./dist/common/index.d.ts"
+    },
+    "./framework": {
+      "import": "./dist/framework/index.js",
+      "types": "./dist/framework/index.d.ts"
     }
   },
   "dependencies": {

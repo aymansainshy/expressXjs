@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { Controller, CONTROLLER_METADATA } from '@expressX/core/decorators';
+import { Controller, CONTROLLER_METADATA } from './controller.decorator';
+
 
 describe('Controller decorator', () => {
   it('should define controller metadata', () => {

@@ -1,4 +1,5 @@
-import { ROUTES_METADATA } from "@expressX/core/common";
+import { ROUTES_METADATA } from "../common";
+
 
 
 export interface RouteDefinition {

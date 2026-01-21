@@ -5,13 +5,13 @@ exports.Controller = Controller;
 const tsyringe_1 = require("tsyringe");
 exports.CONTROLLER_METADATA = Symbol('CONTROLLER_METADATA');
 class ControllerRegistry {
-    static { this.controllers = []; }
     static add(target) {
         if (!this.controllers.includes(target))
             this.controllers.push(target);
     }
 }
 exports.ControllerRegistry = ControllerRegistry;
+ControllerRegistry.controllers = [];
 function Controller(path = '') {
     return (target) => {
         (0, tsyringe_1.injectable)()(target);

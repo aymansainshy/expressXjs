@@ -1,4 +1,6 @@
-import { Ctx, XNextFn } from "@expressX/core/common";
+import { Ctx } from "../../common";
+
+
 
 
 export abstract class ExpressXInterceptor {

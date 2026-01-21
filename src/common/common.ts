@@ -8,3 +8,7 @@ export interface Ctx {
 export type XNextFn<T = any> = () => Promise<T>;
 
 
+export interface Options {
+  prefix?: string;
+  version?: string;
+}

@@ -15,85 +15,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExpressX = void 0;
-require("reflect-metadata");
+exports.Kernel = void 0;
 const express_1 = __importDefault(require("express"));
 const tsyringe_1 = require("tsyringe");
-const routing_1 = require("@expressX/core/routing");
-const scanner_1 = require("@expressX/core/scanner");
+const scanner_1 = require("../scanner");
 let Kernel = class Kernel {
-    constructor(appRouter, scanner) {
-        this.appRouter = appRouter;
+    constructor(scanner) {
         this.scanner = scanner;
-    }
-};
-Kernel = __decorate([
-    __param(0, (0, tsyringe_1.inject)(routing_1.AppRouter)),
-    __param(1, (0, tsyringe_1.inject)(scanner_1.Scanner)),
-    __metadata("design:paramtypes", [routing_1.AppRouter,
-        scanner_1.Scanner])
-], Kernel);
-class ExpressX extends Kernel {
-    constructor() {
-        super(...arguments);
-        this.fullPrefix = '';
         this.initialized = false;
     }
-    /**
-     * Handles the prefixing logic based on user config
-     */
-    preConfig(config) {
-        this.app;
-        const prefix = config?.prefix ?? '/api';
-        const version = config?.version ?? 'v1';
-        // Combines to /api/v1 by default
-        this.fullPrefix = `/${prefix}/${version}`.replace(/\/+/g, '/');
-    }
-    /**
-     * Framework-only app creation & wiring
-     */
-    async createApp(config) {
+    async start() {
         if (this.initialized)
             return this.app;
-        // 1. Pre-Init (Async tasks like DB)
-        await this.preInit();
-        // 2. Pre-Config (Setup prefix/versioning)
-        this.preConfig(config);
+        // 1. Scan for controllers, configs, etc.
+        await this.scanner.scanProject();
+        // 2. validate configurations
+        // 3. Create Express App
         const app = (0, express_1.default)();
         this.app = app;
-        // 3. Discovery (Load controllers)
-        await this.scanner.scanControllers();
-        // 4. Initialization (User middlewares)
-        this.onInit(app);
-        // 5. Routing
-        app.use(this.fullPrefix, this.appRouter.getRouter());
-        // 6. Handle 404s
-        this.onNotFound(app);
-        // 7. Global Error Handling
-        app.use((err, req, res, next) => {
-            // this.errorHandler.handleError(err, req, res, next);
-        });
-        // 8. Final hook
-        this.postInit(app);
         this.initialized = true;
-        return app;
+        return this.app;
     }
-    /** Default 404 Implementation - Can be overridden */
-    onNotFound(app) {
-        app.use((req, res) => {
-            res.status(404).json({
-                status: 404,
-                message: `Route ${req.originalUrl} not found in ExpressX`,
-                path: req.originalUrl
-            });
-        });
-    }
-    /** Default Post-Init Implementation */
-    postInit(app) {
-        const routes = app._router.stack
-            .filter((r) => r.route)
-            .map((r) => r.route.path);
-        console.log(`[ExpressX] ✅ Setup complete. ${routes.length} routes registered.`);
-    }
-}
-exports.ExpressX = ExpressX;
+};
+exports.Kernel = Kernel;
+exports.Kernel = Kernel = __decorate([
+    (0, tsyringe_1.injectable)(),
+    __param(0, (0, tsyringe_1.inject)(scanner_1.Scanner)),
+    __metadata("design:paramtypes", [scanner_1.Scanner])
+], Kernel);

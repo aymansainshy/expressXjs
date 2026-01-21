@@ -1,3 +1,4 @@
+import "reflect-metadata";
 export * from './decorators';
 export * from './kernel';
 export * from './routing';

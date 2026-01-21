@@ -7,15 +7,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 require("reflect-metadata");
-const decorators_1 = require("@expressX/core/decorators");
+const controller_decorator_1 = require("./controller.decorator");
 describe('Controller decorator', () => {
     it('should define controller metadata', () => {
         let UserController = class UserController {
         };
         UserController = __decorate([
-            (0, decorators_1.Controller)('/users')
+            (0, controller_decorator_1.Controller)('/users')
         ], UserController);
-        const path = Reflect.getMetadata(decorators_1.CONTROLLER_METADATA, UserController);
+        const path = Reflect.getMetadata(controller_decorator_1.CONTROLLER_METADATA, UserController);
         expect(path).toBe('/users');
     });
 });
