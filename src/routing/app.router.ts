@@ -23,14 +23,17 @@ export class AppRouter {
       const routes = Reflect.getMetadata(ROUTES_METADATA, controller) as RouteDefinition[];
 
       routes.forEach(route => {
-        const handler = instance[route.handlerName].bind(instance);
+        const handler = instance[route.handlerName].bind(instance); // Function getUsers()
+        const handerName: string = route.handlerName;       // hander name 'getUsers', 'createUser', etc.
+        const method: string = route.method.toLowerCase(); // 'get', 'post', 'delete', 'put', patch'
+        const routePath = route.path;                   // '/list-user', '/:id', etc.     
+        const fullPath = basePath ? `${basePath}${routePath}` : routePath; // '/users/list-user', '//users/:id', etc.
 
-        const fullPath = basePath ? `${basePath}${route.path}` : route.path;
-        const method = route.method.toLowerCase();
 
         // OPTIMIZATION: Extract metadata ONCE during boot
-        const pipelineData = this.preparePipelineData(instance, handler);
-        const paramMeta = Reflect.getMetadata(PARAM_METADATA, instance, handler) || [];
+        const pipelineData = this.preparePipelineData(instance, handerName);
+        const paramMeta: any[] = Reflect.getMetadata(PARAM_METADATA, instance, handerName) || [];
+
 
         (appRouter as any)[method](fullPath, async (req: Request, res: Response, next: NextFunction) => {
           const ctx: Ctx = { req, res };
@@ -46,8 +49,6 @@ export class AppRouter {
               if (step.type === GUARDS_METADATA.toString()) {
                 const allowed = await runGuard(runner, ctx);
                 if (!allowed) throw new Error('Unauthorized');
-              } else if (step.type === VALIDATOR_METADATA.toString()) {
-                await runner.validate(ctx);
               } else {
                 await runner.use(ctx);
               }
@@ -55,16 +56,18 @@ export class AppRouter {
 
             // 2. Interceptor 'before'
             for (const interceptor of interceptors) {
-              await interceptor.before(ctx);
+              const instance = new interceptor.cls() as ExpressXInterceptor;
+              await instance.before(ctx);
             }
 
             // 3. Controller Execution
-            let result = await this.callController(instance, handler, paramMeta, req, res, next);
+            let result = await this.callController(handler, paramMeta, req, res, next);
 
             // 4. Interceptor 'after' (Reverse)
             for (const interceptor of [...interceptors].reverse()) {
               result = await interceptor.after(ctx, result);
             }
+
 
             return HttpResponseHandler.handlerResponse(async () => result, res, next);
 
@@ -75,11 +78,12 @@ export class AppRouter {
             // }
             // Run all error hooks in parallel because they are independent side-effects
             await Promise.all(
-              interceptors.map(interceptor =>
-                interceptor.onError ? interceptor.onError(ctx, err) : Promise.resolve()
-              )
+              interceptors.map((interceptor: any) => {
+                const instance = new interceptor.cls() as ExpressXInterceptor;
+                return instance.onError ? instance.onError(ctx, err) : Promise.resolve()
+              })
             );
-            return HttpResponseHandler.handleError(err, next); // Pass 'res' here
+            return HttpResponseHandler.handleError(err, next);
           }
         });
       });
@@ -97,8 +101,8 @@ export class AppRouter {
     const middlewares = Reflect.getMetadata(MIDDLEWARES_METADATA, instance, handlerName) || [];
 
     // Resolve interceptors once or keep classes to resolve per request if they have state
-    const interceptorClasses = Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [];
-    const interceptors: ExpressXInterceptor[] = interceptorClasses.map((m: any) => container.resolve<ExpressXInterceptor>(m.cls));
+    const interceptors = Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [];
+    // const interceptorsInstances: ExpressXInterceptor[] = interceptorClasses.map((m: any) => container.resolve<ExpressXInterceptor>(m.cls));
 
     const pipeline = [
       ...guards.map((g: any) => ({ ...g, type: GUARDS_METADATA.toString() })),
@@ -109,7 +113,7 @@ export class AppRouter {
     return { pipeline, interceptors };
   }
 
-  private async callController(instance: any, handlerName: string, paramMeta: any[], req: Request, res: Response, next: NextFunction) {
+  private async callController(handler: Function, paramMeta: any[], req: Request, res: Response, next: NextFunction) {
     const args: any[] = new Array(paramMeta.length);
 
     for (const meta of paramMeta) {
@@ -121,6 +125,6 @@ export class AppRouter {
         case ParamType.NEXT: args[meta.index] = next; break;
       }
     }
-    return instance[handlerName](...args);
+    return handler(...args);
   }
 }

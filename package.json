@@ -46,10 +46,14 @@
       "import": "./dist/framework/index.js",
       "require": "./dist/framework/index.js",
       "types": "./dist/framework/index.d.ts"
+    },
+    "./runtime": {
+      "import": "./dist/runtime/index.js",
+      "require": "./dist/runtime/index.js",
+      "types": "./dist/runtime/index.d.ts"
     }
   },
   "dependencies": {
-    "commander": "^11.1.0",
     "express": "^4.19.2",
     "glob": "^10.3.10",
     "reflect-metadata": "^0.2.2",

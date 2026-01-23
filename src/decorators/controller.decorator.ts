@@ -1,4 +1,4 @@
-import { injectable } from 'tsyringe';
+import { singleton } from 'tsyringe';
 
 export const CONTROLLER_METADATA = Symbol('CONTROLLER_METADATA');
 
@@ -11,7 +11,7 @@ export class ControllerRegistry {
 
 export function Controller(path: string = ''): ClassDecorator {
   return (target: any) => {
-    injectable()(target);
+    singleton()(target);
     Reflect.defineMetadata(CONTROLLER_METADATA, path, target);
     ControllerRegistry.add(target);
   };

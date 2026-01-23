@@ -36,6 +36,7 @@ export abstract class ExpressXFactory {
 
     // 7. Routing
     const appRouter: AppRouter = container.resolve<AppRouter>(AppRouter);
+    console.log("[ExpressX] Setting up routes...", appRouter.getRouter(options));
     app.use(appRouter.getRouter(options));
 
     // 8. Handle 404s - Not Found
