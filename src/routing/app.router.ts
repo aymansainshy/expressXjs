@@ -22,7 +22,7 @@ export class AppRouter {
       const basePath = Reflect.getMetadata(CONTROLLER_METADATA, controller);
       const routes = Reflect.getMetadata(ROUTES_METADATA, controller) as RouteDefinition[];
 
-      routes.forEach(route => {
+      routes?.forEach(route => {
         const handler = instance[route.handlerName].bind(instance); // Function getUsers()
         const handerName: string = route.handlerName;       // hander name 'getUsers', 'createUser', etc.
         const method: string = route.method.toLowerCase(); // 'get', 'post', 'delete', 'put', patch'
