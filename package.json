@@ -1,6 +1,6 @@
 {
   "name": "@expressx/core",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A lightweight, object-oriented, decorator-based framework on top of Express.js",
   "type": "commonjs",
   "scripts": {
@@ -13,9 +13,6 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "expressx": "./dist/bin/cli.js"
-  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -57,6 +54,7 @@
     "express": "^4.19.2",
     "glob": "^10.3.10",
     "reflect-metadata": "^0.2.2",
+    "tsconfig-paths": "^4.2.0",
     "tsyringe": "^4.8.0"
   },
   "devDependencies": {
