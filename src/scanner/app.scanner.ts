@@ -135,26 +135,32 @@ export class ExpressXScanner {
   //     return false;
   //   }
   // }
-  private static hasDecorators(filePath: string): boolean {
+  private static hasDecorators(filePath: string, isDevMode: boolean): boolean {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
 
       // 1. Quick check for the package import
-      // if (!content.includes('@expressx/core')) {
+      // This matches:
+      // @expressx/core
+      // @expressx/core/
+      // @expressx/core/decorators
+      // @expressx/core/any/other/path
+      // const importPattern = /@expressx\/core(\/[a-zA-Z0-9\-_]*)*/;
+
+      // if (!importPattern.test(content)) {
       //   return false;
       // }
-
-      // 1. Improved check: Match '@expressx/core' followed by any sub-path
-      // This looks for things like: from '@expressx/core' or from '@expressx/core/decorators'
-      // const hasImport = /@expressx\/core/.test(content);
-      // console.log(hasImport)
-      // if (!hasImport) return false;
 
       // 2. Create a regex to match:
       // @             - The literal '@' symbol
       // (Name1|Name2) - Any of your decorator names
       // (?\s*\(.*?\))? - Optional: parentheses with any content inside
-      const decoratorPattern = new RegExp(`@(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm');
+      let decoratorPattern;
+      if (isDevMode) {
+        decoratorPattern = new RegExp(`@(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm');
+      } else {
+        decoratorPattern = new RegExp(`(@)?(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm'); // Compliled TS code doesn't has @ in decorator
+      }
 
       console.log(decoratorPattern.test(content))
 
@@ -210,7 +216,7 @@ export class ExpressXScanner {
 
     for (let i = 0; i < allFiles.length; i += CHUNK_SIZE) {
       const chunk = allFiles.slice(i, i + CHUNK_SIZE);
-      const found = chunk.filter(file => this.hasDecorators(file));
+      const found = chunk.filter(file => this.hasDecorators(file, isDevMode));
       decoratorFiles.push(...found);
 
       // Progress indicator
@@ -268,5 +274,86 @@ export class ExpressXScanner {
 
     const importTime = Date.now() - startTime;
     console.log(`   Import time: ${importTime}ms\n`);
+  }
+
+
+  static async prefurmScanning() {
+    const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
+    const env = isDevMode ? 'Development' : 'Production';
+
+    console.log(`\n⚡ ExpressX Framework - ${env} Mode\n`);
+    console.log('═'.repeat(60) + '\n');
+
+    // Load cache
+    const cache = ExpressXScanner.loadCache(isDevMode);
+    if (cache) {
+      // SUCCESS: Use cache
+      console.log(`✅ Cache loaded successfully`);
+      console.log(`   Decorator files: ${cache.decoratorFiles.length}`);
+      console.log(`   Generated: ${new Date(cache.generatedAt).toLocaleString()}\n`);
+
+      console.time('📦 Import Time');
+      await ExpressXScanner.importFromCache(cache, isDevMode);
+      console.timeEnd('📦 Import Time');
+    } else {
+      // FALLBACK LOGIC
+      // if (isDevMode) {
+      // Development: Allow fallback scan
+      console.log('⚠️  Cache not found - performing scan...\n');
+
+      const newCache = await ExpressXScanner.fullScan(isDevMode);
+      if (!newCache) {
+        const config = ExpressXScanner.getConfig();
+        throw new Error(
+          '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
+          'The production cache is required for deployment.\n\n' +
+          '═══════════════════════════════════════════════════\n' +
+          'SOLUTION:\n' +
+          '═══════════════════════════════════════════════════\n\n' +
+          '1. Update package.json scripts:\n' +
+          '   {\n' +
+          '     "scripts": {\n' +
+          '       "build": "expressx build && tsc"\n' +
+          '     }\n' +
+          '   }\n\n' +
+          '2. Run build command:\n' +
+          '   npm run build\n\n' +
+          '3. Verify cache exists:\n' +
+          `   ${config.outDir}/.expressx/cache.json\n\n` +
+          '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
+          '═══════════════════════════════════════════════════\n'
+        );
+      }
+      ExpressXScanner.saveCache(newCache, isDevMode);
+
+      console.log(`💾 Cache saved for next startup\n`);
+
+      console.time('📦 Import Time');
+      await ExpressXScanner.importFromCache(newCache, isDevMode);
+      console.timeEnd('📦 Import Time');
+      // } else {
+      // Production: STRICT - must have cache
+      //   const config = ExpressXScanner.getConfig();
+      //   throw new Error(
+      //     '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
+      //     'The production cache is required for deployment.\n\n' +
+      //     '═══════════════════════════════════════════════════\n' +
+      //     'SOLUTION:\n' +
+      //     '═══════════════════════════════════════════════════\n\n' +
+      //     '1. Update package.json scripts:\n' +
+      //     '   {\n' +
+      //     '     "scripts": {\n' +
+      //     '       "build": "expressx build && tsc"\n' +
+      //     '     }\n' +
+      //     '   }\n\n' +
+      //     '2. Run build command:\n' +
+      //     '   npm run build\n\n' +
+      //     '3. Verify cache exists:\n' +
+      //     `   ${config.outDir}/.expressx/cache.json\n\n` +
+      //     '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
+      //     '═══════════════════════════════════════════════════\n'
+      //   );
+      // }
+    }
   }
 }

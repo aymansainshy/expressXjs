@@ -7,7 +7,6 @@ export enum LogLevel {
   DEBUG = 'DEBUG'
 }
 
-@singleton()
 export class ExpressXLogger {
   private prefix = '[ExpressX]';
 
