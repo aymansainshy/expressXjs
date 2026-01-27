@@ -28,8 +28,13 @@ export function Application(options: Options = {}): ClassDecorator {
     // 1. Store Metadata
     Reflect.defineMetadata(APP_OPTIONS, options, target);
 
-    // 2. DI Registration
-    singleton()(target);
-    container.register(APP_TOKEN, { useClass: constructor as any });
+
+    // 2. Register the class itself as singleton (what users expect)
+    container.registerSingleton(constructor as any);
+
+    // 3. Register APP_TOKEN to point to the same singleton instance
+    container.register(APP_TOKEN, {
+      useFactory: (c) => c.resolve(constructor as any)
+    });
   };
 }

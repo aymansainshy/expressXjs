@@ -5,7 +5,10 @@ import { Kernel } from "../kernel";
 import { AppRouter } from "../routing";
 import { MissingApplicationDecoratorError, RouteNotFoundError } from "../errors/framework-errors";
 import { APP_TOKEN, Options } from "../common";
+import { ExpressXLogger } from "../logger/logger";
 
+
+const logger = new ExpressXLogger();
 export abstract class ExpressXFactory {
   /**
   * Framework-only app creation & wiring
@@ -26,17 +29,18 @@ export abstract class ExpressXFactory {
 
     // 4. Double Check Instance Type (Runtime Safety)
     if (!(expressXapplicaion instanceof ExpressX)) {
-      throw new Error("[ExpressX] Resolved application does not inherit from ExpressX base class.");
+      logger.error("Resolved application does not inherit from ExpressX base class.")
+      throw new Error("Resolved application does not inherit from ExpressX base class.");
     }
 
     // 5. Pre-Init (Async tasks like DB)
     await expressXapplicaion.preInit();
+
     // 6. Initialization (User middlewares)
     expressXapplicaion.onInit(app);
 
     // 7. Routing
     const appRouter: AppRouter = container.resolve<AppRouter>(AppRouter);
-    console.log("[ExpressX] Setting up routes...", appRouter.getRouter(options));
     app.use(appRouter.getRouter(options));
 
     // 8. Handle 404s - Not Found
