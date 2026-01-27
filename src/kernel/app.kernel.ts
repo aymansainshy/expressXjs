@@ -1,7 +1,7 @@
 
 import express, { Express } from 'express';
 import { inject, injectable } from 'tsyringe';
-import { Scanner } from '../scanner';
+import { ExpressXScanner } from '../scanner';
 
 
 
@@ -10,15 +10,18 @@ export class Kernel {
   protected app!: Express;
   private initialized = false;
 
-  constructor(
-    @inject(Scanner) protected scanner: Scanner,
-  ) { }
+  // constructor(
+  //   @inject(ExpressXScanner) protected scanner: ExpressXScanner,
+  // ) { }
 
   public async start(): Promise<Express> {
     if (this.initialized) return this.app;
 
     // 1. Scan for controllers, configs, etc.
-    await this.scanner.scanProject();
+    await ExpressXScanner.prefurmScanning();
+
+    console.log('═'.repeat(60));
+    console.log('✅ Framework initialized successfully\n');
 
     // 2. validate configurations
 

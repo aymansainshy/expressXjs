@@ -5,183 +5,355 @@ import fs from 'fs';
 import { pathToFileURL } from 'url';
 import { ExpressXLogger } from '../logger/logger';
 
-interface ProjectPaths {
+// ============================================
+// CORE SCANNER
+// ============================================
+
+export interface ScanConfig {
   sourceDir: string;
   outDir: string;
-  scanPattern?: string;
 }
 
-@injectable()
-export class Scanner {
-  constructor(
-    @inject(ExpressXLogger) private logger: ExpressXLogger,
-  ) { }
+export interface FileCache {
+  version: string;
+  decoratorFiles: string[];
+  totalScanned: number;
+  generatedAt: string;
+  environment: 'development' | 'production';
+}
+
+const logger = new ExpressXLogger();
+
+// @injectable()
+export class ExpressXScanner {
+  constructor() { }
+
+  private static readonly CACHE_VERSION = '1.0.0';
+  private static readonly DECORATORS = [
+    'Application',
+    'Controller',
+    'Service',
+    'Middleware',
+    'Interceptor',
+    'Guard',
+  ];
 
   /**
-   * Normalize directory path (remove ./ prefix, trailing slashes)
+   * Get configuration from package.json
    */
-  private normalizePath(dirPath: string): string {
-    return dirPath
-      .replace(/^\.\//, '')
-      .replace(/\/$/, '')
-      .trim();
+  static getConfig(): ScanConfig {
+    const pkgPath = path.join(process.cwd(), 'package.json');
+
+    if (!fs.existsSync(pkgPath)) {
+      throw new Error('❌ package.json not found in current directory.');
+    }
+
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+
+    if (!pkg.expressx?.sourceDir) {
+      throw new Error(
+        '❌ Missing "expressx.sourceDir" in package.json.\n\n' +
+        'Add this configuration:\n' +
+        '{\n' +
+        '  "expressx": {\n' +
+        '    "sourceDir": "src"\n' +
+        '  }\n' +
+        '}'
+      );
+    }
+
+    return {
+      sourceDir: pkg.expressx.sourceDir,
+      outDir: pkg.expressx.outDir || 'dist'
+    };
   }
 
   /**
-   * Parse tsconfig.json safely (handles JSONC - comments and trailing commas)
+   * Get cache file path based on environment
    */
-  private parseTsConfig(tsconfigPath: string): any {
-    try {
-      const content = fs.readFileSync(tsconfigPath, 'utf-8');
-      let cleaned = content
-        .replace(/\/\/.*/g, '')           // Remove single-line comments
-        .replace(/\/\*[\s\S]*?\*\//g, '') // Remove multi-line comments
-        .replace(/,(\s*[}\]])/g, '$1');   // Remove trailing commas
+  private static getCachePath(isDevMode: boolean): string {
+    const config = this.getConfig();
+    const dir = isDevMode ? config.sourceDir : config.outDir;
+    return path.join(process.cwd(), dir, '.expressx', 'cache.json');
+  }
 
-      return JSON.parse(cleaned);
-    } catch (err: any) {
-      this.logger.warn(`⚠️  Could not parse tsconfig.json: ${(err as Error).message}`);
+  /**
+   * Load cache from disk
+   */
+  static loadCache(isDevMode: boolean): FileCache | null {
+    const cachePath = this.getCachePath(isDevMode);
+
+    if (!fs.existsSync(cachePath)) {
+      return null;
+    }
+
+    try {
+      const cache: FileCache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+
+      // Validate cache version
+      if (cache.version !== this.CACHE_VERSION) {
+        console.warn('⚠️  Cache version mismatch, will regenerate');
+        return null;
+      }
+
+      return cache;
+    } catch (err) {
+      console.warn('⚠️  Failed to read cache:', (err as Error).message);
       return null;
     }
   }
 
   /**
-   * Get project paths with priority: package.json → tsconfig.json → defaults
+   * Save cache to disk
    */
-  private getProjectPaths(): ProjectPaths {
-    const cwd = process.cwd();
-    let sourceDir = 'src';
-    let outDir = 'dist';
-    let scanPattern: string | undefined;
+  static saveCache(cache: FileCache, isDevMode: boolean): void {
+    const cachePath = this.getCachePath(isDevMode);
+    const cacheDir = path.dirname(cachePath);
 
-    // PRIORITY 1: Check package.json for framework-specific config
-    const pkgPath = path.join(cwd, 'package.json');
-    if (fs.existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-
-        if (pkg.expressx) {
-          if (pkg.expressx.sourceDir) {
-            sourceDir = this.normalizePath(pkg.expressx.sourceDir);
-            this.logger.info(`📦 Using sourceDir from package.json: ${sourceDir}`);
-          }
-          if (pkg.expressx.outDir) {
-            outDir = this.normalizePath(pkg.expressx.outDir);
-            this.logger.info(`📦 Using outDir from package.json: ${outDir}`);
-          }
-          if (pkg.expressx.scanPattern) {
-            scanPattern = pkg.expressx.scanPattern;
-            this.logger.info(`📦 Using custom scanPattern from package.json`);
-          }
-
-          // If package.json has config, don't check tsconfig
-          if (pkg.expressx.sourceDir && pkg.expressx.outDir) {
-            return { sourceDir, outDir, scanPattern };
-          }
-        }
-      } catch (err: any) {
-        this.logger.warn(`⚠️  Could not parse package.json: ${err.message}`);
-      }
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
     }
 
-    // PRIORITY 2: Check tsconfig.json
-    const tsconfigPath = path.join(cwd, 'tsconfig.json');
-    if (fs.existsSync(tsconfigPath)) {
-      const tsconfig = this.parseTsConfig(tsconfigPath);
-
-      if (tsconfig?.compilerOptions) {
-        if (tsconfig.compilerOptions.rootDir) {
-          sourceDir = this.normalizePath(tsconfig.compilerOptions.rootDir);
-          this.logger.info(`⚙️  Using rootDir from tsconfig.json: ${sourceDir}`);
-        } else if (tsconfig.compilerOptions.baseUrl) {
-          sourceDir = this.normalizePath(tsconfig.compilerOptions.baseUrl);
-          this.logger.info(`⚙️  Using baseUrl from tsconfig.json: ${sourceDir}`);
-        }
-
-        if (tsconfig.compilerOptions.outDir) {
-          outDir = this.normalizePath(tsconfig.compilerOptions.outDir);
-          this.logger.info(`⚙️  Using outDir from tsconfig.json: ${outDir}`);
-        }
-      }
-    }
-
-    // PRIORITY 3: Defaults (already set above)
-    if (sourceDir === 'src' && outDir === 'dist') {
-      this.logger.info(`🔧 Using default paths: src → dist`);
-    }
-
-    return { sourceDir, outDir, scanPattern };
+    fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
   }
 
-  public async scanProject(): Promise<void> {
-    const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
-    const { sourceDir, outDir, scanPattern } = this.getProjectPaths();
+  /**
+   * Check if file contains ExpressX decorators (fast string search)
+   */
+  // private static hasDecorators(filePath: string): boolean {
+  //   try {
+  //     const content = fs.readFileSync(filePath, 'utf-8');
 
+  //     // Quick check: must import from @expressx/core
+  //     if (!content.includes('@expressx/core')) {
+  //       return false;
+  //     }
+
+  //     // Check for any decorator
+  //     return this.DECORATORS.some(decorator => content.includes(decorator));
+  //   } catch {
+  //     return false;
+  //   }
+  // }
+  private static hasDecorators(filePath: string, isDevMode: boolean): boolean {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+
+      // 1. Quick check for the package import
+      // This matches:
+      // @expressx/core
+      // @expressx/core/
+      // @expressx/core/decorators
+      // @expressx/core/any/other/path
+      // const importPattern = /@expressx\/core(\/[a-zA-Z0-9\-_]*)*/;
+
+      // if (!importPattern.test(content)) {
+      //   return false;
+      // }
+
+      // 2. Create a regex to match:
+      // @             - The literal '@' symbol
+      // (Name1|Name2) - Any of your decorator names
+      // (?\s*\(.*?\))? - Optional: parentheses with any content inside
+      let decoratorPattern;
+      if (isDevMode) {
+        decoratorPattern = new RegExp(`@(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm');
+      } else {
+        decoratorPattern = new RegExp(`(@)?(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm'); // Compliled TS code doesn't has @ in decorator
+      }
+
+      console.log(decoratorPattern.test(content))
+
+      return decoratorPattern.test(content);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Perform full project scan
+   */
+  static async fullScan(isDevMode: boolean): Promise<FileCache> {
+    const startTime = Date.now();
+    const config = this.getConfig();
+    const extension = isDevMode ? 'ts' : 'js';
     const rootDir = isDevMode
-      ? path.join(process.cwd(), sourceDir)
-      : path.join(process.cwd(), outDir);
+      ? path.join(process.cwd(), config.sourceDir)
+      : path.join(process.cwd(), config.outDir);
 
-    // Verify directory exists
     if (!fs.existsSync(rootDir)) {
-      const errorMsg = isDevMode
-        ? `Source directory "${sourceDir}" not found. Check your package.json (expressx.sourceDir) or tsconfig.json (rootDir).`
-        : `Build directory "${outDir}" not found. Did you run the build command?`;
-
-      throw new Error(`❌ ${errorMsg}\n   Expected: ${rootDir}`);
+      throw new Error(
+        `❌ Directory not found: ${rootDir}\n` +
+        `   ${isDevMode ? 'Source' : 'Build'} directory must exist.`
+      );
     }
 
-    // Use custom pattern or default
-    const extension = isDevMode ? 'ts' : 'js';
-    const pattern = scanPattern ||
-      `**/+(*application*|*controller*|*interceptor*|*middleware*).${extension}`;
+    console.log(`📂 Scanning directory: ${rootDir}`);
+    console.log(`🔍 Looking for: **/*.${extension}\n`);
 
-    this.logger.info(`📂 Scanning: ${rootDir}`);
-    this.logger.info(`🔎 Pattern: ${pattern}`);
-
-    console.time('🚀 Discovery Time');
-
-    const files = await glob(pattern, {
+    // Get all source files
+    const allFiles = await glob(`**/*.${extension}`, {
       cwd: rootDir,
       absolute: true,
-      ignore: ['**/node_modules/**', '**/*.spec.ts', '**/*.test.ts', '**/*.d.ts']
+      ignore: [
+        '**/node_modules/**',
+        '**/*.spec.ts',
+        '**/*.test.ts',
+        '**/*.d.ts',
+        '**/dist/**',
+        '**/build/**',
+        '**/.expressx/**',
+        '**/.git/**'
+      ]
     });
 
-    if (files.length === 0) {
-      this.logger.warn(
-        `⚠️  No files found matching pattern in ${rootDir}\n` +
-        `   Pattern: ${pattern}`
+    console.log(`📊 Total files found: ${allFiles.length.toLocaleString()}`);
+    console.log(`🔎 Filtering decorator files...`);
+
+    // Filter files containing decorators
+    const decoratorFiles: string[] = [];
+    const CHUNK_SIZE = 1000;
+
+    for (let i = 0; i < allFiles.length; i += CHUNK_SIZE) {
+      const chunk = allFiles.slice(i, i + CHUNK_SIZE);
+      const found = chunk.filter(file => this.hasDecorators(file, isDevMode));
+      decoratorFiles.push(...found);
+
+      // Progress indicator
+      const progress = Math.min(((i + CHUNK_SIZE) / allFiles.length) * 100, 100);
+      process.stdout.write(
+        `\r   Progress: ${progress.toFixed(1)}% - ` +
+        `Found ${decoratorFiles.length} decorator files`
       );
-    } else {
-      this.logger.info(`✅ Found ${files.length} file(s)`);
     }
 
-    await Promise.all(
-      files.map(async (file) => {
-        try {
-          if (isDevMode) {
-            this.logger.info(`🔍 ${path.relative(process.cwd(), file)}`);
-            require(file);
-          } else {
-            this.logger.info(`🔍 ${path.relative(process.cwd(), file)}`);
-            await import(pathToFileURL(file).href);
-          }
-        } catch (err) {
-          console.error(`❌ Failed to import ${file}:`, err);
-          throw err;
-        }
-      })
+    console.log('\n');
+
+    // Convert to relative paths for portability
+    const relativePaths = decoratorFiles.map(f =>
+      path.relative(process.cwd(), f).replace(/\\/g, '/')
     );
 
-    console.timeEnd('🚀 Discovery Time');
+    const scanTime = Date.now() - startTime;
+
+    console.log(`✅ Scan complete in ${scanTime}ms`);
+    console.log(`   Decorator files: ${decoratorFiles.length}`);
+    console.log(`   Scan efficiency: ${((decoratorFiles.length / allFiles.length) * 100).toFixed(2)}%\n`);
+
+    return {
+      version: this.CACHE_VERSION,
+      decoratorFiles: relativePaths,
+      totalScanned: allFiles.length,
+      generatedAt: new Date().toISOString(),
+      environment: isDevMode ? 'development' : 'production'
+    };
+  }
+
+  /**
+   * Import decorator files from cache
+   */
+  static async importFromCache(cache: FileCache, isDevMode: boolean): Promise<void> {
+    const startTime = Date.now();
+
+    for (const relativePath of cache.decoratorFiles) {
+      const absolutePath = path.join(process.cwd(), relativePath);
+
+      logger.info('Path to Import -------->>>', absolutePath);
+      try {
+        if (isDevMode) {
+          require(absolutePath);
+        } else {
+          await import(absolutePath);
+        }
+      } catch (err) {
+        console.error(`❌ Failed to import: ${relativePath}`);
+        console.error((err as Error).message);
+        throw err;
+      }
+    }
+
+    const importTime = Date.now() - startTime;
+    console.log(`   Import time: ${importTime}ms\n`);
+  }
+
+
+  static async prefurmScanning() {
+    const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
+    const env = isDevMode ? 'Development' : 'Production';
+
+    console.log(`\n⚡ ExpressX Framework - ${env} Mode\n`);
+    console.log('═'.repeat(60) + '\n');
+
+    // Load cache
+    const cache = ExpressXScanner.loadCache(isDevMode);
+    if (cache) {
+      // SUCCESS: Use cache
+      console.log(`✅ Cache loaded successfully`);
+      console.log(`   Decorator files: ${cache.decoratorFiles.length}`);
+      console.log(`   Generated: ${new Date(cache.generatedAt).toLocaleString()}\n`);
+
+      console.time('📦 Import Time');
+      await ExpressXScanner.importFromCache(cache, isDevMode);
+      console.timeEnd('📦 Import Time');
+    } else {
+      // FALLBACK LOGIC
+      // if (isDevMode) {
+      // Development: Allow fallback scan
+      console.log('⚠️  Cache not found - performing scan...\n');
+
+      const newCache = await ExpressXScanner.fullScan(isDevMode);
+      if (!newCache) {
+        const config = ExpressXScanner.getConfig();
+        throw new Error(
+          '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
+          'The production cache is required for deployment.\n\n' +
+          '═══════════════════════════════════════════════════\n' +
+          'SOLUTION:\n' +
+          '═══════════════════════════════════════════════════\n\n' +
+          '1. Update package.json scripts:\n' +
+          '   {\n' +
+          '     "scripts": {\n' +
+          '       "build": "expressx build && tsc"\n' +
+          '     }\n' +
+          '   }\n\n' +
+          '2. Run build command:\n' +
+          '   npm run build\n\n' +
+          '3. Verify cache exists:\n' +
+          `   ${config.outDir}/.expressx/cache.json\n\n` +
+          '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
+          '═══════════════════════════════════════════════════\n'
+        );
+      }
+      ExpressXScanner.saveCache(newCache, isDevMode);
+
+      console.log(`💾 Cache saved for next startup\n`);
+
+      console.time('📦 Import Time');
+      await ExpressXScanner.importFromCache(newCache, isDevMode);
+      console.timeEnd('📦 Import Time');
+      // } else {
+      // Production: STRICT - must have cache
+      //   const config = ExpressXScanner.getConfig();
+      //   throw new Error(
+      //     '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
+      //     'The production cache is required for deployment.\n\n' +
+      //     '═══════════════════════════════════════════════════\n' +
+      //     'SOLUTION:\n' +
+      //     '═══════════════════════════════════════════════════\n\n' +
+      //     '1. Update package.json scripts:\n' +
+      //     '   {\n' +
+      //     '     "scripts": {\n' +
+      //     '       "build": "expressx build && tsc"\n' +
+      //     '     }\n' +
+      //     '   }\n\n' +
+      //     '2. Run build command:\n' +
+      //     '   npm run build\n\n' +
+      //     '3. Verify cache exists:\n' +
+      //     `   ${config.outDir}/.expressx/cache.json\n\n` +
+      //     '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
+      //     '═══════════════════════════════════════════════════\n'
+      //   );
+      // }
+    }
   }
 }
-
-
-// package.json
-// {
-//   "expressx": {
-//     "sourceDir": "src",
-//     "outDir": "dist",
-//     "scanPattern": "**/*.(route|handler|guard).ts"
-//   }
-// }
