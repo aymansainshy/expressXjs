@@ -5,7 +5,7 @@ import { RouteDefinition } from '../decorators/methods.decorator';
 import { CONTROLLER_METADATA, ControllerRegistry } from '../decorators/controller.decorator';
 import { runGuard } from '../base/guards/guards';
 import { ParamType } from '../decorators/prams.decorator';
-import { HttpResponseHandler } from '../http';
+import { HttpResponseHandler } from '../http/response.handler';
 import { ExpressXInterceptor } from '../base/interceptors/interceptors';
 import { Ctx, GUARDS_METADATA, INTERCEPTOR_METADATA, MIDDLEWARES_METADATA, Options, PARAM_METADATA, ROUTES_METADATA, VALIDATOR_METADATA } from '../common';
 
