@@ -6,21 +6,103 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
     /* Modules */
-    "module": "Node16",
-    "moduleResolution": "node16",
+    "module": "NodeNext", // ✅ Works with CommonJS output
+    "moduleResolution": "nodenext", // ✅ Modern Node.js resolution
     /* Build */
-    "rootDir": "src",
+    "sourceMap": true,
+    "allowJs": false,
     "outDir": "dist",
+    "rootDir": "packages",
+    // "baseUrl": ".",
+    // "paths": {
+    //   "@expressx/base": [
+    //     "./packages/base"
+    //   ],
+    //   "@expressx/base/*": [
+    //     "./packages/base/*"
+    //   ],
+    //   "@expressx/common": [
+    //     "./packages/common"
+    //   ],
+    //   "@expressx/common/*": [
+    //     "./packages/common/*"
+    //   ],
+    //   "@expressx/decorators": [
+    //     "./packages/decorators"
+    //   ],
+    //   "@expressx/decorators/*": [
+    //     "./packages/decorators/*"
+    //   ],
+    //   "@expressx/errors": [
+    //     "./packages/errors"
+    //   ],
+    //   "@expressx/errors/*": [
+    //     "./packages/errors/*"
+    //   ],
+    //   "@expressx/framework": [
+    //     "./packages/framework"
+    //   ],
+    //   "@expressx/framework/*": [
+    //     "./packages/framework/*"
+    //   ],
+    //   "@expressx/http": [
+    //     "./packages/http"
+    //   ],
+    //   "@expressx/http/*": [
+    //     "./packages/http/*"
+    //   ],
+    //   "@expressx/kernel": [
+    //     "./packages/kernel"
+    //   ],
+    //   "@expressx/kernel/*": [
+    //     "./packages/kernel/*"
+    //   ],
+    //   "@expressx/logger": [
+    //     "./packages/logger"
+    //   ],
+    //   "@expressx/logger/*": [
+    //     "./packages/logger/*"
+    //   ],
+    //   "@expressx/routing": [
+    //     "./packages/routing"
+    //   ],
+    //   "@expressx/routing/*": [
+    //     "./packages/routing/*"
+    //   ],
+    //   "@expressx/runtime": [
+    //     "./packages/runtime"
+    //   ],
+    //   "@expressx/runtime/*": [
+    //     "./packages/runtime/*"
+    //   ],
+    //   "@expressx/scanner": [
+    //     "./packages/scanner"
+    //   ],
+    //   "@expressx/scanner/*": [
+    //     "./packages/scanner/*"
+    //   ],
+    //   "@expressx/diContainer": [
+    //     "./packages/diContainer"
+    //   ],
+    //   "@expressx/diContainer/*": [
+    //     "./packages/diContainer/*"
+    //   ],
+    // },
     /* Types */
     "declaration": true,
     "declarationMap": true,
     "esModuleInterop": true,
+    "isolatedModules": false,
     "forceConsistentCasingInFileNames": true,
     /* Type Checking */
     "strict": true,
     "skipLibCheck": true
   },
   // "include": [
-  //   "src"
+  //   "packages/**/*"
+  // ],
+  // "exclude": [
+  //   "node_modules",
+  //   "**/*.spec.ts"
   // ]
 }

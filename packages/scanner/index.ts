@@ -1,0 +1,1 @@
+export { ExpressXScanner } from '../scanner/app.scanner'
