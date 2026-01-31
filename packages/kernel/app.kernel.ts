@@ -1,5 +1,5 @@
 
-import { Injectable } from '../decorators/di.container.decorator';
+import { Injectable } from '../decorators/di';
 import { ExpressXApp } from '../framework/types';
 import { ExpressXScanner } from '../scanner';
 import express from 'express';

@@ -1,5 +1,4 @@
-import 'reflect-metadata';
-import { Controller } from './controller.decorator';
+import { Controller } from './controller';
 import { CONTROLLER_METADATA } from '../common'
 
 

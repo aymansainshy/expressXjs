@@ -14,10 +14,11 @@ export {
   // The Container & Core Logic - Re-export
   // ============================================
   ExpressXContainer,
+  createProvider,
   instanceCachingFactory,
   instancePerContainerCachingFactory,
   predicateAwareClassFactory
-} from './expressx.container';
+} from '../decorators/di';
 
 
 

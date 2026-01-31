@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import {
   injectable,
   inject,
@@ -9,52 +8,29 @@ import {
   registry,
   autoInjectable,
   InjectionToken,
+  // Type exports
+  DependencyContainer,
+  // Note: Lifecycle is both a value and a type, so we export it once above
+  Lifecycle,
+  container as ExpressXContainer,
 } from 'tsyringe';
-import { Lifecycle, ExpressXContainer, DependencyContainer } from '../dicontainer';
 
-//
-// ─────────────────────────────────────────────
-//  EXPRESSX SCOPES (Framework-level abstraction)
-// ─────────────────────────────────────────────
-//
-
-export enum Scope {
-  SINGLETON = 'SINGLETON',
-  TRANSIENT = 'TRANSIENT',
-  CONTAINER = 'CONTAINER',
-  RESOLUTION = 'RESOLUTION',
-}
-
-function mapScope(scope: Scope): Lifecycle.ResolutionScoped | Lifecycle.ContainerScoped | undefined {
-  switch (scope) {
-    case Scope.CONTAINER:
-      return Lifecycle.ContainerScoped;
-    case Scope.RESOLUTION:
-      return Lifecycle.ResolutionScoped;
-    default:
-      return undefined;
-  }
-}
 
 //
 // ─────────────────────────────────────────────
 //  CLASS DECORATORS
 // ─────────────────────────────────────────────
 //
-
-export function Injectable(scope: Scope = Scope.TRANSIENT): ClassDecorator {
+export function Injectable(lifecycle: Lifecycle = Lifecycle.Singleton): ClassDecorator {
   return (target: any) => {
     // Always make it injectable first
     injectable()(target);
 
-    // Apply scope-specific behavior
-    if (scope === Scope.SINGLETON) {
+    // Apply lifecycle scope-specific behavior
+    if (lifecycle === Lifecycle.Singleton) {
       singleton()(target);
-    } else if (scope === Scope.CONTAINER || scope === Scope.RESOLUTION) {
-      const lifecycle = mapScope(scope);
-      if (lifecycle) {
-        scoped(lifecycle)(target);
-      }
+    } else if (lifecycle === Lifecycle.ContainerScoped || lifecycle === Lifecycle.ResolutionScoped) {
+      scoped(lifecycle)(target);
     }
     // TRANSIENT doesn't need additional decorator - injectable() is enough
   };
@@ -67,13 +43,10 @@ export function Singleton(): ClassDecorator {
   };
 }
 
-export function Scoped(scope: Scope.CONTAINER | Scope.RESOLUTION): ClassDecorator {
+export function Scoped(lifecycle: Lifecycle.ContainerScoped | Lifecycle.ResolutionScoped): ClassDecorator {
   return (target: any) => {
     injectable()(target);
-    const lifecycle = mapScope(scope);
-    if (lifecycle) {
-      scoped(lifecycle)(target);
-    }
+    scoped(lifecycle)(target);
   };
 }
 
@@ -89,23 +62,18 @@ export function AutoInjectable(): ClassDecorator {
 // ─────────────────────────────────────────────
 //
 
-interface RegistrationOptions {
+
+export interface RegistrationOptions {
   lifecycle?: Lifecycle;
 }
 
-type RegistryProvider<T = any> = {
+export type RegistryProvider<T = any> = {
   token: InjectionToken<T>;
   useClass?: new (...args: any[]) => T;
   useValue?: T;
   useFactory?: (dependencyContainer: DependencyContainer) => T;
   options?: RegistrationOptions;
 };
-
-export function Registry(providers: RegistryProvider[]): ClassDecorator {
-  return (target: any) => {
-    return registry(providers as any)(target);
-  };
-}
 
 // Helper function for easier registry creation
 export function createProvider<T>(
@@ -119,6 +87,20 @@ export function createProvider<T>(
     options,
   };
 }
+
+
+export function Registry(providers: RegistryProvider[]): ClassDecorator {
+  return (target: any) => {
+    providers.forEach(p => {
+      if (!p.token) {
+        throw new Error('Provider must have a token');
+      }
+    });
+    return registry(providers as any)(target);
+  };
+}
+
+
 
 //
 // ─────────────────────────────────────────────
@@ -165,3 +147,25 @@ export function InjectWithTransform<TInput = any, TOutput = any>(
     injectWithTransform(token, transformToken)(target as any, propertyKey as any, parameterIndex);
   };
 }
+
+
+export {
+  // Type exports
+  DependencyContainer,
+  InjectionToken,
+  Provider,
+  FactoryProvider,
+  ValueProvider,
+  TokenProvider,
+  ClassProvider,
+  Disposable,
+  // Note: Lifecycle is both a value and a type, so we export it once above
+  Lifecycle,
+  // ============================================
+  // The Container & Core Logic - Re-export
+  // ===========================================
+  instanceCachingFactory,
+  instancePerContainerCachingFactory,
+  predicateAwareClassFactory,
+  container as ExpressXContainer,
+} from 'tsyringe';

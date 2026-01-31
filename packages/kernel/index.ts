@@ -1,1 +1,1 @@
-export * from './app.kernel';
+export { Kernel } from './app.kernel';

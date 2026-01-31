@@ -12,8 +12,9 @@ import { ExpressXInterceptor } from '../base/interceptors/interceptors';
 import { HttpResponseHandler } from '../http/response.handler';
 import { NextFn, Request, Response } from "../framework";
 import { ExpressXContainer } from "../dicontainer";
-import { Singleton } from "../decorators/di.container.decorator";
-import { ControllerRegistry, ParamType, RouteDefinition } from "../decorators";
+import { Singleton } from "../decorators/di";
+import { ParamType, RouteDefinition } from "../decorators";
+import { ControllerRegistry } from "./controllers.register";
 
 
 
