@@ -53,11 +53,16 @@
       "import": "./dist/scanner/index.js",
       "require": "./dist/scanner/index.js",
       "types": "./dist/scanner/index.d.ts"
+    },
+    "./dicontainer": {
+      "import": "./dist/dicontainer/index.js",
+      "require": "./dist/dicontainer/index.js",
+      "types": "./dist/dicontainer/index.d.ts"
     }
   },
   "dependencies": {
     "express": "5.2.1",
-    "glob": "^10.3.10",
+    "glob": "^13.0.0",
     "reflect-metadata": "^0.2.2",
     "tsconfig-paths": "^4.2.0",
     "tsyringe": "^4.8.0"
