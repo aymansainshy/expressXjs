@@ -8,13 +8,15 @@ import {
 } from '../common';
 
 import { runGuard } from '../base/guards/guards';
-import { ExpressXInterceptor } from '../base/interceptors/interceptors';
+import { ExpressXInterceptor, runInterceptors } from '../base/interceptors/interceptors';
 import { HttpResponseHandler } from '../http/response.handler';
 import { NextFn, Request, Response } from "../framework";
 import { ExpressXContainer } from "../dicontainer";
 import { Singleton } from "../decorators/di";
 import { ParamType, RouteDefinition } from "../decorators";
 import { ControllerRegistry } from "./controllers.register";
+import { GlobalInterceptorRegistry } from "../decorators/global-interceptors";
+import { STATUS_CODE_METADATA } from "../common/constants";
 
 
 
@@ -38,18 +40,22 @@ export class AppRouter {
         const fullPath = basePath ? `${basePath}${routePath}` : routePath; // '/users/list-user', '//users/:id', etc.
 
 
-        // OPTIMIZATION: Extract metadata ONCE during boot
-        const pipelineData = this.preparePipelineData(instance, handerName);
-        const paramMeta: any[] = Reflect.getMetadata(PARAM_METADATA, instance, handerName) || [];
 
+        // Resolve Global interceptors
+        const globalInterceptorClasses: ExpressXInterceptor[] = GlobalInterceptorRegistry.getAll();
+        const globalInterceptors = globalInterceptorClasses.map((c: any) => ExpressXContainer.resolve<ExpressXInterceptor>(c));
+
+        console.log("Global Interceptors Resolved: ", globalInterceptors);
+
+        // This will prepare and sort the pipeline (guards, validators, middlewares and route-specific interceptors)
+        // based on priority and type, so we don't have to do it per request
+        const pipelineMetaData = this.preparePipelineData(instance, handerName);
 
         (appRouter as any)[method](fullPath, async (req: Request, res: Response, next: NextFn) => {
 
-          const { pipeline, interceptors } = pipelineData;
-
-          try {
-            // 0. Create Instance per request if needed (stateful controllers), Global interceptors.
-
+          const { pipeline, routeInterceptors, paramMeta, statusCode } = pipelineMetaData;
+          // ---- CORE pipeline (no response emission here)
+          const corePipeline = async (): Promise<any> => {
 
             // 1. Run Pipeline (Guards, Validators, Middlewares)
             for (const step of pipeline) {
@@ -62,35 +68,23 @@ export class AppRouter {
               }
             }
 
-            // 2. Interceptor 'before'
-            for (const interceptor of interceptors) {
-              const instance = new interceptor.cls() as ExpressXInterceptor;
-              await instance.before(req);
-            }
+            // 2. route interceptors wrap controller
+            return runInterceptors(
+              { req, res },
+              routeInterceptors.map((i: any) => new i.cls()),
+              async () => await this.callController(handler, paramMeta, req, res, next)
+            );
 
-            // 3. Controller Execution
-            let result = await this.callController(handler, paramMeta, req, res, next);
+          }
 
-            // 4. Interceptor 'after' (Reverse)
-            for (const interceptor of [...interceptors].reverse()) {
-              result = await interceptor.after(res, result);
-            }
+          try {
 
+            const result = await runInterceptors({ req, res }, globalInterceptors, corePipeline);
 
-            return HttpResponseHandler.handlerResponse(async () => result, res, next);
+            return HttpResponseHandler.handlerResponse(async () => result, res, next, statusCode);
 
           } catch (err) {
-            // 5. Interceptor 'onError'
-            // for (const interceptor of interceptors) {
-            //   await interceptor.onError(ctx, err);
-            // }
-            // Run all error hooks in parallel because they are independent side-effects
-            await Promise.all(
-              interceptors.map((interceptor: any) => {
-                const instance = new interceptor.cls() as ExpressXInterceptor;
-                return instance.onError ? instance.onError(err) : Promise.resolve()
-              })
-            );
+            if (res.headersSent) return next(err);
             return HttpResponseHandler.handleError(err, next);
           }
         });
@@ -105,20 +99,23 @@ export class AppRouter {
    */
   private preparePipelineData(instance: any, handlerName: string) {
     const guards = Reflect.getMetadata(GUARDS_METADATA, instance, handlerName) || [];
-    const validators = Reflect.getMetadata(VALIDATOR_METADATA, instance, handlerName) || [];
+    // const validators = Reflect.getMetadata(VALIDATOR_METADATA, instance, handlerName) || [];
     const middlewares = Reflect.getMetadata(MIDDLEWARES_METADATA, instance, handlerName) || [];
-
     // Resolve interceptors once or keep classes to resolve per request if they have state
-    const interceptors = Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [];
-    // const interceptorsInstances: ExpressXInterceptor[] = interceptorClasses.map((m: any) => container.resolve<ExpressXInterceptor>(m.cls));
+    const routeInterceptors = Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [];
+
+    const statusCode: number | undefined = Reflect.getMetadata(STATUS_CODE_METADATA, instance, handlerName);
 
     const pipeline = [
       ...guards.map((g: any) => ({ ...g, type: GUARDS_METADATA.toString() })),
-      ...validators.map((v: any) => ({ ...v, type: VALIDATOR_METADATA.toString() })),
+      // ...validators.map((v: any) => ({ ...v, type: VALIDATOR_METADATA.toString() })),
       ...middlewares.map((m: any) => ({ ...m, type: MIDDLEWARES_METADATA.toString() }))
     ].sort((a, b) => a.priority - b.priority);
 
-    return { pipeline, interceptors };
+    // Extract param metadata once during boot to avoid doing it per request.
+    const paramMeta: any[] = Reflect.getMetadata(PARAM_METADATA, instance, handlerName) || [];
+
+    return { pipeline, routeInterceptors, paramMeta, statusCode };
   }
 
   private async callController(handler: Function, paramMeta: any[], req: Request, res: Response, next: NextFn) {
