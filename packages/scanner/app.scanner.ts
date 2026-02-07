@@ -264,7 +264,8 @@ export class ExpressXScanner {
       }
 
       try {
-        console.log(`   ├─ ${cachedFile.path}`);
+        logger.info(`├─ ${absolutePath}`, 'Importing file');
+
 
         if (isDevMode) {
           require(absolutePath);
@@ -304,10 +305,12 @@ export class ExpressXScanner {
     // Load cache
     const cache = ExpressXScanner.loadCache(isDevMode);
     if (cache) {
-      // SUCCESS: Use cache
-      console.log(`✅ Cache loaded successfully`);
-      console.log(`   Decorator files: ${cache.decoratorFiles.length}`);
-      console.log(`   Generated: ${new Date(cache.generatedAt).toLocaleString()}\n`);
+      logger.success(`.expressx.cache loaded successfully`, 'Startup');
+      logger.debug(`.expressx.cache version: ${cache.version}`, 'Startup');
+      logger.debug(`Environment: ${cache.environment}`, 'Startup');
+      logger.debug(`Total files scanned: ${cache.totalScanned.toLocaleString()}`, 'Startup');
+      logger.debug(`Decorator files: ${cache.decoratorFiles.length}`, 'Startup');
+      logger.debug(`Generated: ${new Date(cache.generatedAt).toLocaleString()}`, 'Startup');
 
       console.time('📦 Import Time');
       await ExpressXScanner.importFromCache(cache, isDevMode);
