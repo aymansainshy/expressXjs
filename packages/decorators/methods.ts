@@ -1,7 +1,9 @@
 import { ROUTES_METADATA } from "../common";
+import { ExpressXLogger } from "../logger";
 
 
 
+const logger = new ExpressXLogger();
 export interface RouteDefinition {
   path: string;
   method: string;
@@ -12,6 +14,7 @@ type HttpMethods = 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH';
 
 const Route = (method: HttpMethods, path: string): MethodDecorator => {
   return (target: Object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => {
+    logger.debug(`Applying @${method} decorator to method "${propertyKey as string}" in class "${target.constructor.name}" with path: ${path}`, 'Decorator');
 
     if (!Reflect.hasMetadata(ROUTES_METADATA, target.constructor)) {
       Reflect.defineMetadata(ROUTES_METADATA, [], target.constructor);

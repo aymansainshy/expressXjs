@@ -7,7 +7,6 @@ export abstract class ExpressX {
   public abstract preInit(): Promise<void>;
   public abstract onInit(app: ExpressXApp): void;
   public abstract postInit(app: ExpressXApp): void;
-  public abstract bootstrap(): Promise<void>;
 }
 
 

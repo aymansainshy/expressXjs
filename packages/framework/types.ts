@@ -1,9 +1,9 @@
 
 import {
   Express,
-  Request as ExRequest,
-  Response as ExResponse,
-  NextFunction as ExNextFunction,
+  Request,
+  Response,
+  NextFunction as NextFn,
 } from 'express';
 
 export interface ExpressXApp extends Express {
@@ -19,7 +19,12 @@ export interface ExpressXApp extends Express {
 //   sendSuccess: (data: any) => void;
 // }
 
-// export type ExpressXApp = Express;
-export type Request = ExRequest;
-export type Response = ExResponse;
-export type NextFn = ExNextFunction;
+export interface Ctx {
+  req: Request;
+  res: Response;
+}
+
+export { Request, Response, NextFn };
+
+
+
