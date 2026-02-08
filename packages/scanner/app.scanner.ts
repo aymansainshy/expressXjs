@@ -259,7 +259,7 @@ export class ExpressXScanner {
 
       // Skip duplicates (prevent circular imports)
       if (importedPaths.has(absolutePath)) {
-        console.log(`   ⚠️  Skipping duplicate: ${cachedFile.path}`);
+        logger.warn(`Skipping duplicate import: ${absolutePath}`, 'Importing file');
         continue;
       }
 
@@ -276,12 +276,12 @@ export class ExpressXScanner {
         importedPaths.add(absolutePath);
 
       } catch (err) {
-        console.error(`   ❌ Failed: ${cachedFile.path}`);
+        logger.error(`Failed to import ${cachedFile.path}: ${(err as Error).message}`, 'Importing file');
 
         // Detect circular dependencies
         if (err instanceof RangeError && err.message.includes('stack')) {
           throw new Error(
-            `Circular dependency detected in: ${cachedFile.path}\n` +
+            `Circular dependency detected in: ${absolutePath}\n` +
             'Check your imports for circular references between controllers/services.'
           );
         }
@@ -291,7 +291,7 @@ export class ExpressXScanner {
     }
 
     const importTime = Date.now() - startTime;
-    console.log(`   Import time: ${importTime}ms\n`);
+    logger.info(`All files imported in ${importTime}ms\n`, 'Importing files');
   }
 
 
@@ -299,22 +299,17 @@ export class ExpressXScanner {
     const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
     const env = isDevMode ? 'Development' : 'Production';
 
-    console.log(`\n⚡ ExpressX Framework - ${env} Mode\n`);
-    console.log('═'.repeat(60) + '\n');
-
     // Load cache
     const cache = ExpressXScanner.loadCache(isDevMode);
     if (cache) {
-      logger.success(`.expressx.cache loaded successfully`, 'Startup');
-      logger.debug(`.expressx.cache version: ${cache.version}`, 'Startup');
-      logger.debug(`Environment: ${cache.environment}`, 'Startup');
-      logger.debug(`Total files scanned: ${cache.totalScanned.toLocaleString()}`, 'Startup');
-      logger.debug(`Decorator files: ${cache.decoratorFiles.length}`, 'Startup');
-      logger.debug(`Generated: ${new Date(cache.generatedAt).toLocaleString()}`, 'Startup');
+      logger.success(`.expressx/cache.json loaded successfully`, 'Startup');
+      logger.debug(`.expressx/cache.json version: ${cache.version}`, '.expressx/cache.json');
+      logger.debug(`Environment: ${cache.environment}`, '.expressx/cache.json');
+      logger.debug(`Total files scanned: ${cache.totalScanned.toLocaleString()}`, '.expressx/cache.json');
+      logger.debug(`Decorator files: ${cache.decoratorFiles.length}`, '.expressx/cache.json');
+      logger.debug(`Generated: ${new Date(cache.generatedAt).toLocaleString()}`, '.expressx/cache.json');
 
-      console.time('📦 Import Time');
       await ExpressXScanner.importFromCache(cache, isDevMode);
-      console.timeEnd('📦 Import Time');
     } else {
       // FALLBACK LOGIC
       // if (isDevMode) {
@@ -324,8 +319,8 @@ export class ExpressXScanner {
       const newCache = await ExpressXScanner.fullScan(isDevMode);
       if (!newCache) {
         const config = ExpressXScanner.getConfig();
-        throw new Error(
-          '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
+        const error = new Error(
+          'PRODUCTION CACHE NOT FOUND!\n\n' +
           'The production cache is required for deployment.\n\n' +
           '═══════════════════════════════════════════════════\n' +
           'SOLUTION:\n' +
@@ -343,14 +338,11 @@ export class ExpressXScanner {
           '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
           '═══════════════════════════════════════════════════\n'
         );
+        logger.error(error.message, '.expressx/cache.json');
+        throw error;
       }
       ExpressXScanner.saveCache(newCache, isDevMode);
-
-      console.log(`💾 Cache saved for next startup\n`);
-
-      console.time('📦 Import Time');
       await ExpressXScanner.importFromCache(newCache, isDevMode);
-      console.timeEnd('📦 Import Time');
       // } else {
       // Production: STRICT - must have cache
       //   const config = ExpressXScanner.getConfig();

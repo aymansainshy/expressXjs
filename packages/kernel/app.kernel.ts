@@ -22,9 +22,6 @@ export class Kernel {
     // 1. Scan for controllers, configs, etc.
     await ExpressXScanner.prefurmScanning();
 
-    console.log('═'.repeat(60));
-    console.log('✅ Framework initialized successfully\n');
-
     // 2. validate configurations
 
     // 3. Create Express App

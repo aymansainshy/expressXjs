@@ -133,7 +133,7 @@ export class ExpressXLogger {
     parts.push(this.getLevelBadge(level));
 
     // Prefix
-    parts.push(this.colorize(this.colors.expressXcolor + this.colors.bright, `[${this.prefix}]`));
+    parts.push(this.colorize(this.colors.reset, `[${this.prefix}]`));
 
     // Context
     if (context) {
@@ -154,7 +154,7 @@ export class ExpressXLogger {
 
   private getLevelBadge(level: LogLevel): string {
     const badges = {
-      [LogLevel.DEBUG]: this.colorize(this.colors.bgBrightBlue + this.colors.black + this.colors.bright, ` ${level} `),
+      [LogLevel.DEBUG]: this.colorize(this.colors.reset, ` ${level} `),
       [LogLevel.INFO]: this.colorize(this.colors.bgBrightGreen + this.colors.black + this.colors.bright, ` ${level} `),
       [LogLevel.SUCCESS]: this.colorize(this.colors.bgGreen + this.colors.brightWhite + this.colors.bright, ` ${level} `),
       [LogLevel.WARN]: this.colorize(this.colors.bgBrightYellow + this.colors.black + this.colors.bright, ` ${level} `),
@@ -166,7 +166,7 @@ export class ExpressXLogger {
 
   private getMessageColor(level: LogLevel): string {
     switch (level) {
-      case LogLevel.DEBUG: return this.colors.blue;
+      case LogLevel.DEBUG: return this.colors.reset;
       case LogLevel.INFO: return this.colors.green;
       case LogLevel.SUCCESS: return this.colors.green;
       case LogLevel.WARN: return this.colors.yellow;
@@ -194,3 +194,7 @@ export class ExpressXLogger {
     this.options.enableColors = true;
   }
 }
+
+
+
+export const logger = new ExpressXLogger();
