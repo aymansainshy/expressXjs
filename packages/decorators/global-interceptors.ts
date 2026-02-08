@@ -1,9 +1,12 @@
 import { ExpressXInterceptor } from "../base/interceptors/interceptors";
+import { ExpressXLogger } from "../logger";
 import { ExpressXContainer, Singleton } from "./di";
 
+const logger = new ExpressXLogger();
 
 export function UseGlobalInterceptor(): ClassDecorator {
   return (target: any) => {
+    logger.debug(`Applying @UseGlobalInterceptor decorator to class "${target.name}"`, 'Decorator');
     const constructor = target as unknown as ExpressXInterceptor;
 
     if (!(target.prototype instanceof ExpressXInterceptor)) {
