@@ -150,8 +150,6 @@ export class ExpressXScanner {
         decoratorPattern = new RegExp(`(@)?(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm'); // Compliled TS code doesn't has @ in decorator
       }
 
-      console.log(decoratorPattern.test(content))
-
       return decoratorPattern.test(content);
     } catch {
       return false;
@@ -176,8 +174,7 @@ export class ExpressXScanner {
       );
     }
 
-    console.log(`📂 Scanning directory: ${rootDir}`);
-    console.log(`🔍 Looking for: **/*.${extension}\n`);
+    logger.info(`Start Scanning directory: ${rootDir}`, 'Scanning');
 
     // Get all source files
     const allFiles = await glob(`**/*.${extension}`, {
@@ -195,8 +192,8 @@ export class ExpressXScanner {
       ]
     });
 
-    console.log(`📊 Total files found: ${allFiles.length.toLocaleString()}`);
-    console.log(`🔎 Filtering decorator files...`);
+    logger.info(`Total files found: ${allFiles.length.toLocaleString()}`, 'Scanning');
+    logger.info(`Start Filtering decorator files...`, 'Scanning');
 
     // Filter files containing decorators
     const decoratorFiles: CachedFileMetadata[] = [];
@@ -223,20 +220,21 @@ export class ExpressXScanner {
       }
 
       const progress = Math.min(((i + CHUNK_SIZE) / allFiles.length) * 100, 100);
-      process.stdout.write(
-        `\r   Progress: ${progress.toFixed(1)}% - ` +
-        `Found ${decoratorFiles.length} decorator files`
+      logger.info(
+        `Progress: ${progress.toFixed(1)}% - ` +
+        `Found ${decoratorFiles.length} decorator files`,
+        'Scanning'
       );
     }
 
-    console.log('\n');
+    logger.info(`Scan complete. Found ${decoratorFiles.length} decorator files`, 'Scanning');
 
 
     const scanTime = Date.now() - startTime;
 
-    console.log(`✅ Scan complete in ${scanTime}ms`);
-    console.log(`   Decorator files: ${decoratorFiles.length}`);
-    console.log(`   Scan efficiency: ${((decoratorFiles.length / allFiles.length) * 100).toFixed(2)}%\n`);
+    logger.info(`Scan complete in ${scanTime}ms`, 'Scanning');
+    logger.info(`Decorator files: ${decoratorFiles.length}`, 'Scanning');
+    logger.info(`Scan efficiency: ${((decoratorFiles.length / allFiles.length) * 100).toFixed(2)}%`, 'Scanning');
 
     return {
       version: this.CACHE_VERSION,
@@ -314,7 +312,7 @@ export class ExpressXScanner {
       // FALLBACK LOGIC
       // if (isDevMode) {
       // Development: Allow fallback scan
-      console.log('⚠️  Cache not found - performing scan...\n');
+      logger.warn('Cache not found - performing scan...', 'Scanning');
 
       const newCache = await ExpressXScanner.fullScan(isDevMode);
       if (!newCache) {
