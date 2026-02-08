@@ -1,7 +1,7 @@
 
 export class HttpResponse<T = any> {
   constructor(
-    public statusCode: number = 200,
+    public code: number = 200,
     public data?: T
   ) { }
 
@@ -17,9 +17,15 @@ export class HttpResponse<T = any> {
     return new HttpResponse<void>(204);
   }
 
+  // static redirect(url: string) {
+  //   const response = new HttpResponse<void>(302);
+  //   (response as any).redirectUrl = url; // Attach redirect URL for handling in the response handler
+  //   return response;
+  // }
 
-  status(statusCode: number): this {
-    this.statusCode = statusCode;
+
+  status(code: number): this {
+    this.code = code;
     return this;
   }
 

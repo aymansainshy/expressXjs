@@ -5,13 +5,21 @@ import { HttpResponse } from "../http/http.response";
 
 
 export class HttpResponseHandler {
-  static async handlerResponse(fn: () => Promise<any>, res: Response, next: NextFn) {
+  static async handlerResponse(
+    fn: () => Promise<any>,
+    res: Response,
+    next: NextFn,
+    statusCode?: number,
+    redirectUrl?: string
+  ) {
     try {
-      const result = await fn();
+      const result: HttpResponse | any = await fn();
       if (res.headersSent) return;
 
-      const status = result instanceof HttpResponse ? result.statusCode : 200;
-      const data = result instanceof HttpResponse ? result.data : result;
+      console.log("Result before handling:", result instanceof HttpResponse);
+
+      const status = result instanceof HttpResponse ? result?.code : statusCode || 200;
+      const data = result instanceof HttpResponse ? result?.data : result;
 
       res.status(status).json(data);
     } catch (err) {

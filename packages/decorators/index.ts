@@ -1,5 +1,6 @@
 import "reflect-metadata"
 
+export { StatusCode } from "./statusCode";
 export { Controller } from './controller';
 export { GET, POST, PUT, DELETE, PATCH, RouteDefinition } from './methods';
 export { Req, Res, Next, Body, ParamType } from './prams';
@@ -8,6 +9,8 @@ export { UseMiddlewares } from './middlewares';
 export { UseGuards } from './guards';
 export { UseInterceptors } from './interceptors';
 export { UseValidators } from './validators';
+export { UseGlobalInterceptor } from './global-interceptors';
+
 
 
 // ✅ RELIABLE - Explicit named exports

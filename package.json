@@ -24,6 +24,11 @@
       "require": "./dist/constants/constants.js",
       "types": "./dist/constants/constants.d.ts"
     },
+    "./base": {
+      "import": "./dist/base/index.js",
+      "require": "./dist/base/index.js",
+      "types": "./dist/base/index.d.ts"
+    },
     "./decorators": {
       "import": "./dist/decorators/index.js",
       "require": "./dist/decorators/index.js",

@@ -3,6 +3,7 @@ import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs';
 import { ExpressXLogger } from '../logger/logger';
+import { pathToFileURL } from 'url';
 
 // ============================================
 // CORE SCANNER
@@ -13,9 +14,16 @@ export interface ScanConfig {
   outDir: string;
 }
 
+export interface CachedFileMetadata {
+  path: string;
+  mtime: number;
+  size: number;
+  hash?: string; // MD5 or xxHash of decorator lines only
+}
+
 export interface FileCache {
   version: string;
-  decoratorFiles: string[];
+  decoratorFiles: CachedFileMetadata[];
   totalScanned: number;
   generatedAt: string;
   environment: 'development' | 'production';
@@ -28,12 +36,9 @@ export class ExpressXScanner {
 
   private static readonly CACHE_VERSION = '1.0.0';
   private static readonly DECORATORS = [
+    'UseGlobalInterceptor',
     'Application',
     'Controller',
-    'Service',
-    'Middleware',
-    'Interceptor',
-    'Guard',
   ];
 
   /**
@@ -94,7 +99,7 @@ export class ExpressXScanner {
         return null;
       }
 
-      return cache;
+      return cache as FileCache;
     } catch (err) {
       console.warn('⚠️  Failed to read cache:', (err as Error).message);
       return null;
@@ -118,21 +123,6 @@ export class ExpressXScanner {
   /**
    * Check if file contains ExpressX decorators (fast string search)
    */
-  // private static hasDecorators(filePath: string): boolean {
-  //   try {
-  //     const content = fs.readFileSync(filePath, 'utf-8');
-
-  //     // Quick check: must import from @expressx/core
-  //     if (!content.includes('@expressx/core')) {
-  //       return false;
-  //     }
-
-  //     // Check for any decorator
-  //     return this.DECORATORS.some(decorator => content.includes(decorator));
-  //   } catch {
-  //     return false;
-  //   }
-  // }
   private static hasDecorators(filePath: string, isDevMode: boolean): boolean {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -209,15 +199,29 @@ export class ExpressXScanner {
     console.log(`🔎 Filtering decorator files...`);
 
     // Filter files containing decorators
-    const decoratorFiles: string[] = [];
+    const decoratorFiles: CachedFileMetadata[] = [];
     const CHUNK_SIZE = 1000;
 
     for (let i = 0; i < allFiles.length; i += CHUNK_SIZE) {
       const chunk = allFiles.slice(i, i + CHUNK_SIZE);
-      const found = chunk.filter(file => this.hasDecorators(file, isDevMode));
-      decoratorFiles.push(...found);
 
-      // Progress indicator
+      for (const file of chunk) {
+        if (this.hasDecorators(file, isDevMode)) {
+          const relativePath = path.relative(process.cwd(), file).replace(/\\/g, '/');
+
+          try {
+            const stats = fs.statSync(file);
+            decoratorFiles.push({
+              path: relativePath,
+              mtime: stats.mtimeMs,
+              size: stats.size
+            });
+          } catch {
+            // File deleted between scan and stat
+          }
+        }
+      }
+
       const progress = Math.min(((i + CHUNK_SIZE) / allFiles.length) * 100, 100);
       process.stdout.write(
         `\r   Progress: ${progress.toFixed(1)}% - ` +
@@ -227,10 +231,6 @@ export class ExpressXScanner {
 
     console.log('\n');
 
-    // Convert to relative paths for portability
-    const relativePaths = decoratorFiles.map(f =>
-      path.relative(process.cwd(), f).replace(/\\/g, '/')
-    );
 
     const scanTime = Date.now() - startTime;
 
@@ -240,7 +240,7 @@ export class ExpressXScanner {
 
     return {
       version: this.CACHE_VERSION,
-      decoratorFiles: relativePaths,
+      decoratorFiles,
       totalScanned: allFiles.length,
       generatedAt: new Date().toISOString(),
       environment: isDevMode ? 'development' : 'production'
@@ -252,26 +252,46 @@ export class ExpressXScanner {
    */
   static async importFromCache(cache: FileCache, isDevMode: boolean): Promise<void> {
     const startTime = Date.now();
+    const importedPaths = new Set<string>(); // Prevent circular imports
 
-    for (const relativePath of cache.decoratorFiles) {
-      const absolutePath = path.join(process.cwd(), relativePath);
+    for (const cachedFile of cache.decoratorFiles) {
+      const absolutePath = path.join(process.cwd(), cachedFile.path);
 
-      logger.info('Path to Import -------->>>', absolutePath);
+      // Skip duplicates (prevent circular imports)
+      if (importedPaths.has(absolutePath)) {
+        logger.warn(`Skipping duplicate import: ${absolutePath}`, 'Importing file');
+        continue;
+      }
+
       try {
+        logger.info(`├─ ${absolutePath}`, 'Importing file');
+
+
         if (isDevMode) {
           require(absolutePath);
         } else {
-          await import(absolutePath);
+          await import(pathToFileURL(absolutePath).href);
         }
+
+        importedPaths.add(absolutePath);
+
       } catch (err) {
-        console.error(`❌ Failed to import: ${relativePath}`);
-        console.error((err as Error).message);
+        logger.error(`Failed to import ${cachedFile.path}: ${(err as Error).message}`, 'Importing file');
+
+        // Detect circular dependencies
+        if (err instanceof RangeError && err.message.includes('stack')) {
+          throw new Error(
+            `Circular dependency detected in: ${absolutePath}\n` +
+            'Check your imports for circular references between controllers/services.'
+          );
+        }
+
         throw err;
       }
     }
 
     const importTime = Date.now() - startTime;
-    console.log(`   Import time: ${importTime}ms\n`);
+    logger.info(`All files imported in ${importTime}ms\n`, 'Importing files');
   }
 
 
@@ -279,20 +299,17 @@ export class ExpressXScanner {
     const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
     const env = isDevMode ? 'Development' : 'Production';
 
-    console.log(`\n⚡ ExpressX Framework - ${env} Mode\n`);
-    console.log('═'.repeat(60) + '\n');
-
     // Load cache
     const cache = ExpressXScanner.loadCache(isDevMode);
     if (cache) {
-      // SUCCESS: Use cache
-      console.log(`✅ Cache loaded successfully`);
-      console.log(`   Decorator files: ${cache.decoratorFiles.length}`);
-      console.log(`   Generated: ${new Date(cache.generatedAt).toLocaleString()}\n`);
+      logger.success(`.expressx/cache.json loaded successfully`, 'Startup');
+      logger.debug(`.expressx/cache.json version: ${cache.version}`, '.expressx/cache.json');
+      logger.debug(`Environment: ${cache.environment}`, '.expressx/cache.json');
+      logger.debug(`Total files scanned: ${cache.totalScanned.toLocaleString()}`, '.expressx/cache.json');
+      logger.debug(`Decorator files: ${cache.decoratorFiles.length}`, '.expressx/cache.json');
+      logger.debug(`Generated: ${new Date(cache.generatedAt).toLocaleString()}`, '.expressx/cache.json');
 
-      console.time('📦 Import Time');
       await ExpressXScanner.importFromCache(cache, isDevMode);
-      console.timeEnd('📦 Import Time');
     } else {
       // FALLBACK LOGIC
       // if (isDevMode) {
@@ -302,8 +319,8 @@ export class ExpressXScanner {
       const newCache = await ExpressXScanner.fullScan(isDevMode);
       if (!newCache) {
         const config = ExpressXScanner.getConfig();
-        throw new Error(
-          '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
+        const error = new Error(
+          'PRODUCTION CACHE NOT FOUND!\n\n' +
           'The production cache is required for deployment.\n\n' +
           '═══════════════════════════════════════════════════\n' +
           'SOLUTION:\n' +
@@ -321,14 +338,11 @@ export class ExpressXScanner {
           '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
           '═══════════════════════════════════════════════════\n'
         );
+        logger.error(error.message, '.expressx/cache.json');
+        throw error;
       }
       ExpressXScanner.saveCache(newCache, isDevMode);
-
-      console.log(`💾 Cache saved for next startup\n`);
-
-      console.time('📦 Import Time');
       await ExpressXScanner.importFromCache(newCache, isDevMode);
-      console.timeEnd('📦 Import Time');
       // } else {
       // Production: STRICT - must have cache
       //   const config = ExpressXScanner.getConfig();
