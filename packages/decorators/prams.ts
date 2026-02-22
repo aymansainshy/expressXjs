@@ -7,6 +7,7 @@ export enum ParamType {
   PARAM = "param",
   REQ = "req",
   RES = "res",
+  CTX = "ctx",
   NEXT = "expressNext",
   BODY = "body"
 }
@@ -25,15 +26,21 @@ export function Param(key: string): ParameterDecorator {
   };
 }
 
-export function Req(): ParameterDecorator {
-  return (target, methodName, paramIndex) => {
-    addParamMetadata(target, methodName as string, paramIndex, ParamType.REQ);
-  };
-}
+// export function Req(): ParameterDecorator {
+//   return (target, methodName, paramIndex) => {
+//     addParamMetadata(target, methodName as string, paramIndex, ParamType.REQ);
+//   };
+// }
 
-export function Res(): ParameterDecorator {
+// export function Res(): ParameterDecorator {
+//   return (target, methodName, paramIndex) => {
+//     addParamMetadata(target, methodName as string, paramIndex, ParamType.RES);
+//   };
+// }
+
+export function Ctx(): ParameterDecorator {
   return (target, methodName, paramIndex) => {
-    addParamMetadata(target, methodName as string, paramIndex, ParamType.RES);
+    addParamMetadata(target, methodName as string, paramIndex, ParamType.CTX);
   };
 }
 
