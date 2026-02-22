@@ -100,7 +100,7 @@ export class ExpressXLogger {
       if (error.stack) {
         const stackLines = error.stack.split('\n').slice(1);
         stackLines.forEach(line => {
-          console.error(this.colorize(this.colors.gray, `    ${line.trim()}`));
+          console.error(this.colorize(this.colors.red, `    ${line.trim()}`));
         });
       }
     } else if (typeof error === 'string') {

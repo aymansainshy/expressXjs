@@ -1,16 +1,16 @@
 
 
 import { Kernel } from "../kernel";
-import { ExpressXLogger } from "../logger/logger";
 import { APP_TOKEN, Options } from "../common";
 import { MissingApplicationDecoratorError, RouteNotFoundError } from "../errors/framework-errors";
 import { ExpressX } from './expressX';
 import { AppRouter } from '../routing';
 import { ExpressXApp, Request, Response } from '../framework/types';
 import { ExpressXContainer } from "../dicontainer";
+import { logger } from "../logger/logger";
+import { OnInitExpressXApp } from "./onIniteSetup";
+import { lockExpressXApp } from "./utils";
 
-
-const logger = new ExpressXLogger();
 export abstract class ExpressXFactory {
   /**
   * Framework-only app creation & wiring
@@ -18,7 +18,7 @@ export abstract class ExpressXFactory {
   static async createApp<T extends ExpressX>(options?: Options): Promise<ExpressXApp> {
     // 0. Start Kernel
     const kernel: Kernel = ExpressXContainer.resolve<Kernel>(Kernel);
-    const app: ExpressXApp = await kernel.start();
+    const xApp: ExpressXApp = await kernel.start();
 
     // 2. SAFETY CHECK: Is the token registered?
     // tsyringe allows us to check if a token has a registration
@@ -39,27 +39,31 @@ export abstract class ExpressXFactory {
     await expressXapplicaion.preInit();
 
     // 6. Initialization (User middlewares)
-    expressXapplicaion.onInit(app);
+    await expressXapplicaion.onInit(new OnInitExpressXApp(xApp));
 
     // 7. Routing
     const appRouter: AppRouter = ExpressXContainer.resolve<AppRouter>(AppRouter);
-    app.use(appRouter.getRouter(options));
+    xApp.use(appRouter.getRouter(options));
 
     // 8. Handle 404s - Not Found
-    app.use((req: Request, res: Response) => {
+    xApp.use((req: Request, res: Response) => {
       throw new RouteNotFoundError(req.method, req.path);
     });
 
     // 9. Global Error Handling
     // const globalErrorHandler = ExpressXContainer.resolve<GlobalErrorHandler>(GlobalErrorHandler);
-    app.use((err: any, req: any, res: any, next: any) => {
+    xApp.use((err: any, req: any, res: any, next: any) => {
       // this.errorHandler.handleError(err, req, res, next);
     });
 
-    // 10. Final hook
-    expressXapplicaion.postInit(app);
+    // 10. Lock down the app instance to prevent further modifications
+    // Object.freeze(xApp);
+    lockExpressXApp(xApp);
 
-    return app;
+    // 11. Final hook after everything is set up
+    expressXapplicaion.postInit(xApp);
+
+    return xApp;
   }
 }
 
