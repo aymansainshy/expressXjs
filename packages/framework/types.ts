@@ -19,7 +19,7 @@ export interface ExpressXApp extends Express {
 //   sendSuccess: (data: any) => void;
 // }
 
-export interface Ctx {
+export interface HttpContext {
   req: Request;
   res: Response;
 }

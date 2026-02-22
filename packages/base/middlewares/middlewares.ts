@@ -1,7 +1,7 @@
-import { Ctx } from "../../framework/types";
+import { HttpContext } from "../../framework/types";
 
 
 export abstract class ExpressXMiddleware {
-  abstract use(ctx: Ctx): Promise<any> | any;
+  abstract use(ctx: HttpContext): Promise<void> | void;
 }
 
