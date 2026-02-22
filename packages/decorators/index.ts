@@ -3,7 +3,7 @@ import "reflect-metadata"
 export { StatusCode } from "./statusCode";
 export { Controller } from './controller';
 export { GET, POST, PUT, DELETE, PATCH, RouteDefinition } from './methods';
-export { Req, Res, Next, Body, ParamType } from './prams';
+export { Ctx, Next, Body, ParamType } from './prams';
 export { Application } from './application';
 export { UseMiddlewares } from './middlewares';
 export { UseGuards } from './guards';

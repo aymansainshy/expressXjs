@@ -17,6 +17,7 @@ import { ParamType, RouteDefinition } from "../decorators";
 import { ControllerRegistry } from "./controllers.register";
 import { GlobalInterceptorRegistry } from "../decorators/global-interceptors";
 import { STATUS_CODE_METADATA } from "../common/constants";
+import { logger } from "../logger/logger";
 
 
 
@@ -45,7 +46,6 @@ export class AppRouter {
         const globalInterceptorClasses: ExpressXInterceptor[] = GlobalInterceptorRegistry.getAll();
         const globalInterceptors = globalInterceptorClasses.map((c: any) => ExpressXContainer.resolve<ExpressXInterceptor>(c));
 
-        console.log("Global Interceptors Resolved: ", globalInterceptors);
 
         // This will prepare and sort the pipeline (guards, validators, middlewares and route-specific interceptors)
         // based on priority and type, so we don't have to do it per request
@@ -54,31 +54,36 @@ export class AppRouter {
         (appRouter as any)[method](fullPath, async (req: Request, res: Response, next: NextFn) => {
 
           const { pipeline, routeInterceptors, paramMeta, statusCode } = pipelineMetaData;
-          // ---- CORE pipeline (no response emission here)
+
+          // 2. Run Pipeline (Guards, Validators, Middlewares)
           const corePipeline = async (): Promise<any> => {
 
-            // 1. Run Pipeline (Guards, Validators, Middlewares)
+            // a. route interceptors wrap controller
             for (const step of pipeline) {
               const runner: any = new step.cls(); // Use DI!
               if (step.type === GUARDS_METADATA.toString()) {
                 const allowed = await runGuard(runner, req);
-                if (!allowed) throw new Error('Unauthorized');
+                const error = new Error(`Unauthorized: Guard ${runner.constructor.name} failed.`);
+                if (!allowed) {
+                  logger.error(error.message, 'Guard', error);
+                  throw error;
+                }
               } else {
-                await runner.use(req, res);
+                await runner.use({ req, res });
               }
             }
 
-            // 2. route interceptors wrap controller
+            // b. route interceptors wrap controller
             return runInterceptors(
               { req, res },
               routeInterceptors.map((i: any) => new i.cls()),
               async () => await this.callController(handler, paramMeta, req, res, next)
             );
-
           }
 
           try {
 
+            // 1. Global interceptors wrap everything (including route-specific interceptors and controller)
             const result = await runInterceptors({ req, res }, globalInterceptors, corePipeline);
 
             return HttpResponseHandler.handlerResponse(async () => result, res, next, statusCode);
@@ -101,7 +106,6 @@ export class AppRouter {
     const guards = Reflect.getMetadata(GUARDS_METADATA, instance, handlerName) || [];
     // const validators = Reflect.getMetadata(VALIDATOR_METADATA, instance, handlerName) || [];
     const middlewares = Reflect.getMetadata(MIDDLEWARES_METADATA, instance, handlerName) || [];
-    // Resolve interceptors once or keep classes to resolve per request if they have state
     const routeInterceptors = Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [];
 
     const statusCode: number | undefined = Reflect.getMetadata(STATUS_CODE_METADATA, instance, handlerName);
@@ -124,8 +128,9 @@ export class AppRouter {
     for (const meta of paramMeta) {
       switch (meta.type) {
         case ParamType.PARAM: args[meta.index] = req.params[meta.key]; break;
-        case ParamType.REQ: args[meta.index] = req; break;
-        case ParamType.RES: args[meta.index] = res; break;
+        // case ParamType.REQ: args[meta.index] = req; break;
+        // case ParamType.RES: args[meta.index] = res; break;
+        case ParamType.CTX: args[meta.index] = { req, res }; break;
         case ParamType.BODY: args[meta.index] = req.body; break; // Validate body
         case ParamType.NEXT: args[meta.index] = next; break;
       }

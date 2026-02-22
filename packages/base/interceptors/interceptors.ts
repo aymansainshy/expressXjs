@@ -1,8 +1,8 @@
 import { Request, Response } from "../../framework";
-import { Ctx } from "../../framework/types";
+import { HttpContext } from "../../framework/types";
 
 export abstract class ExpressXInterceptor {
-  abstract intercept(ctx: Ctx, callHandler: Handler): Promise<any>;
+  abstract intercept(ctx: HttpContext, callHandler: Handler): Promise<any>;
 }
 
 
@@ -15,7 +15,7 @@ export interface Handler {
 
 
 export async function runInterceptors(
-  ctx: Ctx,
+  ctx: HttpContext,
   interceptors: ExpressXInterceptor[],
   last: () => Promise<any>
 ): Promise<any> {
