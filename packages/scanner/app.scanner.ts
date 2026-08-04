@@ -2,7 +2,7 @@
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs';
-import { ExpressXLogger } from '../logger/logger';
+import { logger } from '../logger/logger';
 import { pathToFileURL } from 'url';
 
 // ============================================
@@ -28,8 +28,6 @@ export interface FileCache {
   generatedAt: string;
   environment: 'development' | 'production';
 }
-
-const logger = new ExpressXLogger();
 
 export class ExpressXScanner {
   constructor() { }
@@ -96,13 +94,16 @@ export class ExpressXScanner {
 
       // Validate cache version
       if (cache.version !== this.CACHE_VERSION) {
-        console.warn('⚠️  Cache version mismatch, will regenerate');
+        logger.warn(
+          `Cache version mismatch (found ${cache.version}, expected ${this.CACHE_VERSION}) - will regenerate`,
+          '.expressx/cache.json'
+        );
         return null;
       }
 
       return cache as FileCache;
     } catch (err) {
-      console.warn('⚠️  Failed to read cache:', (err as Error).message);
+      logger.warn(`Failed to read cache: ${(err as Error).message}`, '.expressx/cache.json');
       return null;
     }
   }
@@ -297,6 +298,8 @@ export class ExpressXScanner {
   static async prefurmScanning() {
     const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
     const env = isDevMode ? 'Development' : 'Production';
+
+    logger.info(`Running scan in ${env} mode`, 'Scanning');
 
     // Load cache
     const cache = ExpressXScanner.loadCache(isDevMode);
