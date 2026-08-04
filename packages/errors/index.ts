@@ -1,0 +1,1 @@
+export { ExceptionHandler } from "../base/exceptionHandler/exception-handler";

@@ -5,11 +5,14 @@ import { APP_TOKEN, Options } from "../common";
 import { MissingApplicationDecoratorError, RouteNotFoundError } from "../errors/framework-errors";
 import { ExpressX } from './expressX';
 import { AppRouter } from '../routing';
-import { ExpressXApp, Request, Response } from '../framework/types';
+import { ExpressXApp, NextFn, Request, Response } from '../framework/types';
 import { ExpressXContainer } from "../dicontainer";
 import { logger } from "../logger/logger";
 import { OnInitExpressXApp } from "./onIniteSetup";
 import { lockExpressXApp } from "./utils";
+import { ExceptionHandler } from "../errors";
+import { GlobalErrorResponseHandler } from "../http/global.error.response.handler";
+import { GLOBAL_EXCEPTION_HANDLER } from "../common/constants";
 
 export abstract class ExpressXFactory {
   /**
@@ -50,10 +53,13 @@ export abstract class ExpressXFactory {
       throw new RouteNotFoundError(req.method, req.path);
     });
 
-    // 9. Global Error Handling
-    // const globalErrorHandler = ExpressXContainer.resolve<GlobalErrorHandler>(GlobalErrorHandler);
-    xApp.use((err: any, req: any, res: any, next: any) => {
-      // this.errorHandler.handleError(err, req, res, next);
+    // 9. Global Error Handlingـ
+    const globalErrorHandler: ExceptionHandler = ExpressXContainer.resolve<ExceptionHandler>(GLOBAL_EXCEPTION_HANDLER);
+    xApp.use((err: any, req: Request, res: Response, next: NextFn) => {
+      GlobalErrorResponseHandler.handleErrorResponse(globalErrorHandler, err, res).catch((error) => {
+        logger.error("Error in global error handler", 'ErrorHandler', error);
+        res.status(500).json({ message: "Internal Server Error" });
+      });
     });
 
     // 10. Lock down the app instance to prevent further modifications

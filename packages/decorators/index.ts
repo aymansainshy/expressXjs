@@ -10,6 +10,7 @@ export { UseGuards } from './guards';
 export { UseInterceptors } from './interceptors';
 export { UseValidators } from './validators';
 export { UseGlobalInterceptor } from './global-interceptors';
+export { UseGlobalExceptionHandler } from './global-exceptionHandler';
 
 
 

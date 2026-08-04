@@ -37,6 +37,7 @@ export class ExpressXScanner {
   private static readonly CACHE_VERSION = '1.0.0';
   private static readonly DECORATORS = [
     'UseGlobalInterceptor',
+    'UseGlobalExceptionHandler',
     'Application',
     'Controller',
   ];
