@@ -14,7 +14,7 @@ function assertNotErrorMiddleware(fn: Function) {
       `Error middleware is not allowed in onInit(). ` +
       `Use framework global error handler hooks / filters instead.`
     );
-    logger.error(error.message, 'StartUp', error);
+    logger.error(error.message, 'Startup', error);
     throw error;
   }
 }
@@ -24,6 +24,7 @@ export class OnInitExpressXApp {
 
   use(mw: OnInitMiddleware): this {
     assertNotErrorMiddleware(mw as any);
+    logger.debug(`Registering onInit() middleware "${mw.name || '(anonymous)'}"`, 'Startup');
     this.app.use(mw as any);
     return this;
   }

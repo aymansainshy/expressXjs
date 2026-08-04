@@ -1,11 +1,6 @@
-import path from "path/win32";
-import { ExpressXInterceptor } from "../base/interceptors/interceptors";
 import { INTERCEPTOR_METADATA } from "../common";
 import { parseArgs, pushWithPriority } from "./utilities";
-import { ExpressXLogger } from "../logger";
-
-
-const logger = new ExpressXLogger();
+import { logger } from "../logger/logger";
 
 export function UseInterceptors(...args: any[]): MethodDecorator {
 

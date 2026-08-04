@@ -1,7 +1,5 @@
 import { PARAM_METADATA } from "../common";
-import { ExpressXLogger } from "../logger";
-
-
+import { logger } from "../logger/logger";
 
 export enum ParamType {
   PARAM = "param",
@@ -12,7 +10,6 @@ export enum ParamType {
   BODY = "body"
 }
 
-const logger = new ExpressXLogger();
 function addParamMetadata(target: any, methodName: any, paramIndex: number, type: ParamType, key?: string) {
   logger.debug(`Applying @${type} decorator to method "${methodName}" in class "${target.constructor.name}"`, 'Decorator');
   const existing = Reflect.getMetadata(PARAM_METADATA, target, methodName) || [];

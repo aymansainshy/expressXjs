@@ -1,9 +1,6 @@
 import { ROUTES_METADATA } from "../common";
-import { ExpressXLogger } from "../logger";
+import { logger } from "../logger/logger";
 
-
-
-const logger = new ExpressXLogger();
 export interface RouteDefinition {
   path: string;
   method: string;
