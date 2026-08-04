@@ -1,5 +1,6 @@
 import { Request, Response } from "../../framework";
 import { HttpContext } from "../../framework/types";
+import { logger } from "../../logger/logger";
 
 export abstract class ExpressXInterceptor {
   abstract intercept(ctx: HttpContext, callHandler: Handler): Promise<any>;
@@ -26,6 +27,7 @@ export async function runInterceptors(
     if (idx >= interceptors.length) return last();
 
     const current = interceptors[idx];
+    logger.debug(`Running interceptor "${current.constructor.name}" (${idx + 1}/${interceptors.length})`, 'Interceptor');
 
     const callHandler: Handler = {
       handle: () => dispatch(),
@@ -37,6 +39,7 @@ export async function runInterceptors(
 
     const out = await current.intercept(ctx, callHandler);
     if (out === undefined) {
+      logger.debug(`Interceptor "${current.constructor.name}" returned no value - continuing the chain`, 'Interceptor');
       return dispatch();
     }
 

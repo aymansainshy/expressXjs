@@ -58,6 +58,11 @@
       "import": "./dist/dicontainer/index.js",
       "require": "./dist/dicontainer/index.js",
       "types": "./dist/dicontainer/index.d.ts"
+    },
+    "./error": {
+      "import": "./dist/error/index.js",
+      "require": "./dist/error/index.js",
+      "types": "./dist/error/index.d.ts"
     }
   },
   "dependencies": {

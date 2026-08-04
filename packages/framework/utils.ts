@@ -9,7 +9,7 @@ export function lockExpressXApp(app: ExpressXApp) {
       `[ExpressX] app is locked after bootstrap. ` +
       `Do not call app.${name}()/ app.get(). Use framework decorators instead.`
     );
-    logger.error(error.message, `StartUp`, error);
+    logger.error(error.message, 'Startup', error);
     throw error;
   };
 
@@ -37,9 +37,11 @@ export function lockExpressXApp(app: ExpressXApp) {
       `ExpressX app is locked after bootstrap. ` +
       `Do not call app.get(path, ...handlers)/ app.get(). Use framework decorators instead.`
     );
-    logger.error(error.message, `StartUp`, error);
+    logger.error(error.message, 'Startup', error);
     throw error;
   };
+
+  logger.debug('Application instance locked - route registration is now closed', 'Startup');
 
   // (Optional) lock .set() too if you don't want settings changes after bootstrap
   // const originalSet = app.set.bind(app);

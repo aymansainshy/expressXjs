@@ -1,7 +1,5 @@
 import { Request } from "../../framework";
-
-
-
+import { logger } from "../../logger/logger";
 
 
 export abstract class Guard {
@@ -10,9 +8,15 @@ export abstract class Guard {
 
 
 export async function runGuard(guard: Guard, req: Request): Promise<boolean> {
-  const allowed = await guard.canActivate(req);
-  if (!allowed) {
-    return false;
+  try {
+    const allowed = await guard.canActivate(req);
+    if (!allowed) {
+      logger.warn(`Guard "${guard.constructor.name}" denied [${req.method}] ${req.originalUrl}`, 'Guard');
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logger.error(`Guard "${guard.constructor.name}" threw while evaluating the request`, 'Guard', err as Error);
+    throw err;
   }
-  return true;
 }
