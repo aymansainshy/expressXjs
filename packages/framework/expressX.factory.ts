@@ -11,7 +11,7 @@ import { logger } from "../logger/logger";
 import { OnInitExpressXApp } from "./onIniteSetup";
 import { lockExpressXApp } from "./utils";
 import { ExceptionHandler } from "../errors";
-import { GlobalErrorResponseHandler } from "../http/global.error.response.handler";
+import { GlobalExceptionResponseHandler } from "../http/global.exception.response.handler";
 import { GLOBAL_EXCEPTION_HANDLER } from "../common/constants";
 
 export abstract class ExpressXFactory {
@@ -53,10 +53,20 @@ export abstract class ExpressXFactory {
       throw new RouteNotFoundError(req.method, req.path);
     });
 
-    // 9. Global Error Handlingـ
-    const globalErrorHandler: ExceptionHandler = ExpressXContainer.resolve<ExceptionHandler>(GLOBAL_EXCEPTION_HANDLER);
+    // 9. Global Error Handling - fallback for anything the route pipeline did not
+    // already resolve (404s, errors raised outside a route handler).
+    const globalErrorHandler: ExceptionHandler | null = ExpressXContainer.isRegistered(GLOBAL_EXCEPTION_HANDLER)
+      ? ExpressXContainer.resolve<ExceptionHandler>(GLOBAL_EXCEPTION_HANDLER)
+      : null;
     xApp.use((err: any, req: Request, res: Response, next: NextFn) => {
-      GlobalErrorResponseHandler.handleErrorResponse(globalErrorHandler, err, res).catch((error) => {
+      // If the error thrown using NextFn() in route handlers, it will be caught here.
+      // If no global error handler is registered, log the error and return a generic 500 response.
+      if (!globalErrorHandler) {
+        logger.error(err?.message ?? "Unhandled error", 'ErrorHandler', err);
+        res.status(500).json({ message: "Internal Server Error" });
+        return;
+      }
+      GlobalExceptionResponseHandler.handleErrorResponse(globalErrorHandler, err, res).catch((error) => {
         logger.error("Error in global error handler", 'ErrorHandler', error);
         res.status(500).json({ message: "Internal Server Error" });
       });

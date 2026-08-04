@@ -16,8 +16,10 @@ import { Singleton } from "../decorators/di";
 import { ParamType, RouteDefinition } from "../decorators";
 import { ControllerRegistry } from "./controllers.register";
 import { GlobalInterceptorRegistry } from "../decorators/global-interceptors";
-import { STATUS_CODE_METADATA } from "../common/constants";
+import { GLOBAL_EXCEPTION_HANDLER, STATUS_CODE_METADATA } from "../common/constants";
 import { logger } from "../logger/logger";
+import { ExceptionHandler } from "../base/exceptionHandler/exception-handler";
+import { HttpErrorResponse } from "../http/http.error.response";
 
 
 
@@ -25,6 +27,23 @@ import { logger } from "../logger/logger";
 
 @Singleton()
 export class AppRouter {
+  // undefined = not looked up yet, null = no handler registered
+  private exceptionHandler?: ExceptionHandler | null;
+
+  /**
+   * Resolve the global exception handler lazily. Registration happens during
+   * scanning, and apps are free not to declare one at all.
+   * Error thrown by (throw new Error()) in route handlers will be caught here.
+   */
+  private getExceptionHandler(): ExceptionHandler | null {
+    if (this.exceptionHandler === undefined) {
+      this.exceptionHandler = ExpressXContainer.isRegistered(GLOBAL_EXCEPTION_HANDLER)
+        ? ExpressXContainer.resolve<ExceptionHandler>(GLOBAL_EXCEPTION_HANDLER)
+        : null;
+    }
+    return this.exceptionHandler;
+  }
+
   public getRouter(options?: Options): Router {
     const appRouter = Router();
 
@@ -55,30 +74,58 @@ export class AppRouter {
 
           const { pipeline, routeInterceptors, paramMeta, statusCode } = pipelineMetaData;
 
+          // Set once an error has been resolved into a response value, so the final
+          // status still reflects the error even when an interceptor flattens the
+          // HttpErrorResponse into a plain object.
+          let errorStatus: number | undefined;
+
+          // Hand the error to the global ExceptionHandler and return its result as a
+          // *value* instead of rethrowing, so it travels back up the interceptor chain
+          // and interceptors get to transform error responses like any other response.
+          const resolveError = async (err: any): Promise<any> => {
+            const exceptionHandler = this.getExceptionHandler();
+            if (!exceptionHandler) throw err; // No handler registered - let Express handle it
+
+            const resolved = await exceptionHandler.catch(err);
+            errorStatus = resolved instanceof HttpErrorResponse ? resolved.statusCode : 500;
+            return resolved;
+          };
+
           // 2. Run Pipeline (Guards, Validators, Middlewares)
           const corePipeline = async (): Promise<any> => {
-
-            // a. route interceptors wrap controller
-            for (const step of pipeline) {
-              const runner: any = new step.cls(); // Use DI!
-              if (step.type === GUARDS_METADATA.toString()) {
-                const allowed = await runGuard(runner, req);
-                const error = new Error(`Unauthorized: Guard ${runner.constructor.name} failed.`);
-                if (!allowed) {
-                  logger.error(error.message, 'Guard', error);
-                  throw error;
+            try {
+              // a. route interceptors wrap controller
+              for (const step of pipeline) {
+                const runner: any = new step.cls(); // Use DI!
+                if (step.type === GUARDS_METADATA.toString()) {
+                  const allowed = await runGuard(runner, req);
+                  const error = new Error(`Unauthorized: Guard ${runner.constructor.name} failed.`);
+                  if (!allowed) {
+                    logger.error(error.message, 'Guard', error);
+                    throw error;
+                  }
+                } else {
+                  await runner.use({ req, res });
                 }
-              } else {
-                await runner.use({ req, res });
               }
-            }
 
-            // b. route interceptors wrap controller
-            return runInterceptors(
-              { req, res },
-              routeInterceptors.map((i: any) => new i.cls()),
-              async () => await this.callController(handler, paramMeta, req, res, next)
-            );
+              // b. route interceptors wrap controller
+              return await runInterceptors(
+                { req, res },
+                routeInterceptors.map((i: any) => new i.cls()),
+                async () => {
+                  try {
+                    return await this.callController(handler, paramMeta, req, res, next);
+                  } catch (err) {
+                    // Route interceptors see the error response too
+                    return await resolveError(err);
+                  }
+                }
+              );
+            } catch (err) {
+              // Guard / middleware / route-interceptor failures re-enter the global chain
+              return await resolveError(err);
+            }
           }
 
           try {
@@ -86,7 +133,7 @@ export class AppRouter {
             // 1. Global interceptors wrap everything (including route-specific interceptors and controller)
             const result = await runInterceptors({ req, res }, globalInterceptors, corePipeline);
 
-            return HttpResponseHandler.handlerResponse(async () => result, res, next, statusCode);
+            return HttpResponseHandler.handlerResponse(async () => result, res, next, errorStatus ?? statusCode);
 
           } catch (err) {
             if (res.headersSent) return next(err);

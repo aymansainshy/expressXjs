@@ -2,7 +2,7 @@ import { ExceptionHandler } from "../base/exceptionHandler/exception-handler";
 import { HttpContext, NextFn, Response } from "../framework";
 import { HttpErrorResponse } from "./http.error.response";
 
-export class GlobalErrorResponseHandler {
+export class GlobalExceptionResponseHandler {
   static async handleErrorResponse(
     handler: ExceptionHandler,
     error: any,
