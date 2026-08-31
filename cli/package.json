@@ -21,7 +21,7 @@
   "license": "MIT",
   "description": "A CLI tool for ExpressXjs framework",
   "dependencies": {
-    "@expressxjs/core": "0.0.2",
+    "@expressxjs/core": "0.0.3",
     "@types/node": "^20.0.0",
     "chokidar": "^4.0.3",
     "commander": "^11.1.0",
