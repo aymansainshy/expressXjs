@@ -8,8 +8,7 @@
     "watch": "tsc -w",
     "prepare": "npm run build",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "dev": "ts-node src/examples/index.ts"
+    "test:watch": "jest --watch"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

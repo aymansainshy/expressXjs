@@ -3,9 +3,11 @@
   "private": true,
   "workspaces": [
     "core",
-    "cli"
+    "cli",
+    "examples"
   ],
   "scripts": {
+    "dev": "npm run dev --workspace=examples",
     "build": "npm run build --workspace=@expressx/core && npm run build --workspace=@expressx/cli",
     "build:core": "npm run build --workspace=@expressx/core",
     "build:cli": "npm run build --workspace=@expressx/cli"
