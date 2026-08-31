@@ -1,6 +1,6 @@
 {
   "name": "@expressxjs/core",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A lightweight, object-oriented, decorator-based framework on top of Express.js",
   "type": "commonjs",
   "scripts": {
