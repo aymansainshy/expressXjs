@@ -15,7 +15,7 @@
     "expressx": "dist/cli.js"
   },
   "author": "Ayman Abdulrahman",
-  "license": "ISC",
+  "license": "MIT",
   "description": "A CLI tool for ExpressXjs framework",
   "dependencies": {
     "@expressx/core": "*",

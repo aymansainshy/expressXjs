@@ -82,5 +82,5 @@
     "typescript": "^5.5.2"
   },
   "author": "Ayman",
-  "license": "ISC"
+  "license": "MIT"
 }
