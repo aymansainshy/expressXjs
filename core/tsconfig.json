@@ -11,83 +11,8 @@
     /* Build */
     "sourceMap": true,
     "allowJs": false,
-    "outDir": "dist",
-    "rootDir": "packages",
-    // "baseUrl": ".",
-    // "paths": {
-    //   "@expressx/base": [
-    //     "./packages/base"
-    //   ],
-    //   "@expressx/base/*": [
-    //     "./packages/base/*"
-    //   ],
-    //   "@expressx/common": [
-    //     "./packages/common"
-    //   ],
-    //   "@expressx/common/*": [
-    //     "./packages/common/*"
-    //   ],
-    //   "@expressx/decorators": [
-    //     "./packages/decorators"
-    //   ],
-    //   "@expressx/decorators/*": [
-    //     "./packages/decorators/*"
-    //   ],
-    //   "@expressx/errors": [
-    //     "./packages/errors"
-    //   ],
-    //   "@expressx/errors/*": [
-    //     "./packages/errors/*"
-    //   ],
-    //   "@expressx/framework": [
-    //     "./packages/framework"
-    //   ],
-    //   "@expressx/framework/*": [
-    //     "./packages/framework/*"
-    //   ],
-    //   "@expressx/http": [
-    //     "./packages/http"
-    //   ],
-    //   "@expressx/http/*": [
-    //     "./packages/http/*"
-    //   ],
-    //   "@expressx/kernel": [
-    //     "./packages/kernel"
-    //   ],
-    //   "@expressx/kernel/*": [
-    //     "./packages/kernel/*"
-    //   ],
-    //   "@expressx/logger": [
-    //     "./packages/logger"
-    //   ],
-    //   "@expressx/logger/*": [
-    //     "./packages/logger/*"
-    //   ],
-    //   "@expressx/routing": [
-    //     "./packages/routing"
-    //   ],
-    //   "@expressx/routing/*": [
-    //     "./packages/routing/*"
-    //   ],
-    //   "@expressx/runtime": [
-    //     "./packages/runtime"
-    //   ],
-    //   "@expressx/runtime/*": [
-    //     "./packages/runtime/*"
-    //   ],
-    //   "@expressx/scanner": [
-    //     "./packages/scanner"
-    //   ],
-    //   "@expressx/scanner/*": [
-    //     "./packages/scanner/*"
-    //   ],
-    //   "@expressx/diContainer": [
-    //     "./packages/diContainer"
-    //   ],
-    //   "@expressx/diContainer/*": [
-    //     "./packages/diContainer/*"
-    //   ],
-    // },
+    "outDir": "./dist",
+    "rootDir": "./packages",
     /* Types */
     "declaration": true,
     "declarationMap": true,
@@ -98,11 +23,14 @@
     "strict": true,
     "skipLibCheck": true
   },
-  // "include": [
-  //   "packages/**/*"
-  // ],
-  // "exclude": [
-  //   "node_modules",
-  //   "**/*.spec.ts"
-  // ]
+  "include": [
+    "packages/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }
