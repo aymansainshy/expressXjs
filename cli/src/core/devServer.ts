@@ -3,7 +3,7 @@ import fs, { existsSync } from 'fs';
 import chokidar, { FSWatcher } from 'chokidar';
 import { colors } from "../constant/colors";
 import { spawn, ChildProcess } from 'child_process';
-import { IGNORE_PATTERNS } from "../constant/ignoreFiles";
+import { shouldIgnoreWatchPath } from "../constant/ignoreFiles";
 import { CachedFileMetadata, FileCache } from '../constant/scanInerfaces';
 import { ExpressXScanner } from '@expressx/core/scanner';
 import { frameworkLogo } from '../constant/appStarter';
@@ -173,6 +173,11 @@ export class DevServer {
       }
     });
 
+    this.cacheWatcher.on('error', error => {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Cache watcher error: ${message}`, '.expressx/cache.json');
+    });
+
     logger.debug(`Watching cache file: ${cachePath}`, '.expressx/cache.json');
 
     // Cache deleted
@@ -309,12 +314,12 @@ export class DevServer {
 
   private setupWatcher(): void {
     const config = ExpressXScanner.getConfig();
-    const watchPattern = `${config.sourceDir}/**/*.ts`;
+    const watchDirectory = config.sourceDir;
 
-    logger.info(`Start Watching file : ${watchPattern}`, 'Watcher');
+    logger.info(`Start watching TypeScript files in: ${watchDirectory}`, 'Watcher');
 
-    this.watcher = chokidar.watch(watchPattern, {
-      ignored: IGNORE_PATTERNS,
+    this.watcher = chokidar.watch(watchDirectory, {
+      ignored: shouldIgnoreWatchPath,
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: {
@@ -326,6 +331,10 @@ export class DevServer {
     this.watcher.on('change', (filepath) => this.handleFileChange(filepath, 'changed'));
     this.watcher.on('add', (filepath) => this.handleFileChange(filepath, 'added'));
     this.watcher.on('unlink', (filepath) => this.handleFileChange(filepath, 'deleted'));
+    this.watcher.on('error', error => {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`File watcher error: ${message}`, 'Watcher');
+    });
   }
 
   /**

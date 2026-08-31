@@ -1,10 +1,26 @@
 
-export const IGNORE_PATTERNS = [
-  '**/node_modules/**',
-  '**/*.spec.ts',
-  '**/*.test.ts',
-  '**/dist/**',
-  '**/build/**',
-  '**/.git/**',
-  '**/.expressx/**'
-];
+import type { Stats } from 'node:fs';
+
+const IGNORED_DIRECTORIES = new Set([
+  'node_modules',
+  'dist',
+  'build',
+  '.git',
+  '.expressx'
+]);
+
+export function shouldIgnoreWatchPath(watchPath: string, stats?: Stats): boolean {
+  const pathSegments = watchPath.split(/[\\/]/);
+
+  if (pathSegments.some(segment => IGNORED_DIRECTORIES.has(segment))) {
+    return true;
+  }
+
+  if (!stats?.isFile()) {
+    return false;
+  }
+
+  return !watchPath.endsWith('.ts')
+    || watchPath.endsWith('.spec.ts')
+    || watchPath.endsWith('.test.ts');
+}
