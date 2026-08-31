@@ -8,8 +8,8 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=examples",
-    "build": "npm run build --workspace=@expressx/core && npm run build --workspace=@expressx/cli",
-    "build:core": "npm run build --workspace=@expressx/core",
-    "build:cli": "npm run build --workspace=@expressx/cli"
+    "build": "npm run build --workspace=@expressxjs/core && npm run build --workspace=@expressxjs/cli",
+    "build:core": "npm run build --workspace=@expressxjs/core",
+    "build:cli": "npm run build --workspace=@expressxjs/cli"
   }
 }

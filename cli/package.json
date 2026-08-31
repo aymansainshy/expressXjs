@@ -1,5 +1,5 @@
 {
-  "name": "@expressx/cli",
+  "name": "@expressxjs/cli",
   "version": "1.0.0",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
