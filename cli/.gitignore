@@ -1,8 +1,0 @@
-# dependencies
-node_modules/
-dist/
-/dist
-
-# IDE
-/.idea
-/.vscode
