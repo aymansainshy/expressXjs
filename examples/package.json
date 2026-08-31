@@ -1,0 +1,37 @@
+{
+  "name": "examples",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "expressx": {
+    "sourceDir": "src",
+    "outDir": "dist",
+    "main": "src/index.ts"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "expressx start --inspect --max-old-space-size=4096",
+    "build": "rm -rf dist && expressx build --verbose && tsc",
+    "dev3": "EXPRESSX_RUNTIME=ts port=5000 nodemon src/index.ts",
+    "start": "node dist/index.js",
+    "build2": "tsc"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@expressx/cli": "*",
+    "@expressx/core": "*"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.4",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.2"
+  }
+}

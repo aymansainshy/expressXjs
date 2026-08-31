@@ -1,0 +1,27 @@
+{
+  "name": "@expressx/cli",
+  "version": "1.0.0",
+  "main": "dist/cli.js",
+  "types": "dist/cli.d.ts",
+  "type": "commonjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rm -rf dist && tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build"
+  },
+  "bin": {
+    "expressx": "dist/cli.js"
+  },
+  "author": "Ayman Abdulrahman",
+  "license": "ISC",
+  "description": "A CLI tool for ExpressXjs framework",
+  "dependencies": {
+    "@expressx/core": "*",
+    "chokidar": "^4.0.3",
+    "commander": "^11.1.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}
