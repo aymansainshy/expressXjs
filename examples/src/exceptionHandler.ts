@@ -1,5 +1,5 @@
-import { UseGlobalExceptionHandler } from "@expressx/core";
-import { ExceptionHandler } from "@expressx/core";
+import { UseGlobalExceptionHandler } from "@expressxjs/core";
+import { ExceptionHandler } from "@expressxjs/core";
 import { HttpErrorResponse } from "../../core/dist/http/http.error.response";
 
 

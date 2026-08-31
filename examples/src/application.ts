@@ -1,6 +1,6 @@
 
-import { Application, ExpressXApp, OnInitExpressXApp } from '@expressx/core';
-import { ExpressX, ExpressXFactory } from '@expressx/core';
+import { Application, ExpressXApp, OnInitExpressXApp } from '@expressxjs/core';
+import { ExpressX, ExpressXFactory } from '@expressxjs/core';
 import { createServer } from 'http';
 import { parseArgs } from 'util';
 

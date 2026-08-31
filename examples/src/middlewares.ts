@@ -1,4 +1,4 @@
-import { ExpressXMiddleware } from "@expressx/core";
+import { ExpressXMiddleware } from "@expressxjs/core";
 import { HttpContext } from "../../core/dist/framework/types";
 
 export class LoggerMiddleware extends ExpressXMiddleware {

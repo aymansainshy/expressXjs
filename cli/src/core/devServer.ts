@@ -5,7 +5,7 @@ import { colors } from "../constant/colors";
 import { spawn, ChildProcess } from 'child_process';
 import { shouldIgnoreWatchPath } from "../constant/ignoreFiles";
 import { CachedFileMetadata, FileCache } from '../constant/scanInerfaces';
-import { ExpressXScanner } from '@expressx/core/scanner';
+import { ExpressXScanner } from '@expressxjs/core/scanner';
 import { frameworkLogo } from '../constant/appStarter';
 import { logger } from '../constant/logger';
 
@@ -232,7 +232,7 @@ export class DevServer {
     // Format: node [nodeFlags] [entry] [appFlags]
     const nodeArgs = [
       ...(this.options.nodeFlags || []),      // Custom Node.js flags (--inspect, etc.)
-      '--require', '@expressx/core/runtime',  // Required runtime
+      '--require', '@expressxjs/core/runtime',  // Required runtime
       '--enable-source-maps',                 // Source maps
       this.entry,                             // Entry file
       ...(this.options.appFlags || [])        // Application flags (--port, etc.)
@@ -293,8 +293,8 @@ export class DevServer {
       // },
       {
         name: 'Runtime Entry',
-        passed: !!require.resolve('@expressx/core/runtime'),
-        error: '@expressx/core/runtime is not reachable.',
+        passed: !!require.resolve('@expressxjs/core/runtime'),
+        error: '@expressxjs/core/runtime is not reachable.',
       }
     ];
 

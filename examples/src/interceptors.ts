@@ -1,4 +1,4 @@
-import { Ctx, HttpResponse, UseGlobalInterceptor } from "@expressx/core";
+import { Ctx, HttpResponse, UseGlobalInterceptor } from "@expressxjs/core";
 import { ExpressXInterceptor, Handler } from "../../core/dist/base/interceptors/interceptors";
 import { HttpContext } from "../../core/dist/framework/types";
 

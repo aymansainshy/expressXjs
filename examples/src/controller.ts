@@ -1,6 +1,6 @@
 
-import { Body, Controller, Ctx, GET, HttpContext, Inject, Injectable, Next, NextFn, POST, StatusCode, UseGuards, UseInterceptors, UseMiddlewares } from "@expressx/core";
-import { HttpResponse } from "@expressx/core";
+import { Body, Controller, Ctx, GET, HttpContext, Inject, Injectable, Next, NextFn, POST, StatusCode, UseGuards, UseInterceptors, UseMiddlewares } from "@expressxjs/core";
+import { HttpResponse } from "@expressxjs/core";
 import { ResponseEnvelopeInterceptor } from "./interceptors";
 import { JWTAuthGuard } from "./auth.guard";
 import { LoggerMiddleware } from "./middlewares";

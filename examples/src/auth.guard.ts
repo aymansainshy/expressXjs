@@ -1,5 +1,5 @@
-import { Request } from "@expressx/core";
-import { Guard } from "@expressx/core";
+import { Request } from "@expressxjs/core";
+import { Guard } from "@expressxjs/core";
 
 export class JWTAuthGuard extends Guard {
   canActivate(req: Request): Promise<boolean> | boolean {

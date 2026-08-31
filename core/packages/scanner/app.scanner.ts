@@ -131,10 +131,10 @@ export class ExpressXScanner {
 
       // 1. Quick check for the package import
       // This matches:
-      // @expressx/core
-      // @expressx/core/
-      // @expressx/core/decorators
-      // @expressx/core/any/other/path
+      // @expressxjs/core
+      // @expressxjs/core/
+      // @expressxjs/core/decorators
+      // @expressxjs/core/any/other/path
       // const importPattern = /@expressx\/core(\/[a-zA-Z0-9\-_]*)*/;
 
       // if (!importPattern.test(content)) {

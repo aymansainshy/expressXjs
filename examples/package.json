@@ -21,8 +21,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@expressx/cli": "*",
-    "@expressx/core": "*"
+    "@expressxjs/cli": "*",
+    "@expressxjs/core": "*"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

@@ -2,7 +2,7 @@ import { toKebabCase } from "../utils/toKebabCase";
 
 // --- Generator Templates ---
 export const templates = {
-  controller: (name: string) => `import { Controller, Get } from '@expressx/core';
+  controller: (name: string) => `import { Controller, Get } from '@expressxjs/core';
 
 @Controller('/${toKebabCase(name.replace(/Controller$/, ''))}')
 export class ${name} {
@@ -15,7 +15,7 @@ export class ${name} {
 }
 `,
 
-  service: (name: string) => `import { Injectable } from '@expressx/core';
+  service: (name: string) => `import { Injectable } from '@expressxjs/core';
 
 @Injectable()
 export class ${name} {
@@ -46,7 +46,7 @@ export class ${name} {
 }
 `,
 
-  middleware: (name: string) => `import { Middleware, Request, Response, NextFunction } from '@expressx/core';
+  middleware: (name: string) => `import { Middleware, Request, Response, NextFunction } from '@expressxjs/core';
 
 @Middleware()
 export class ${name} {
@@ -57,7 +57,7 @@ export class ${name} {
 }
 `,
 
-  interceptor: (name: string) => `import { Interceptor, Request, Response } from '@expressx/core';
+  interceptor: (name: string) => `import { Interceptor, Request, Response } from '@expressxjs/core';
 
 @Interceptor()
 export class ${name} {
@@ -72,7 +72,7 @@ export class ${name} {
 }
 `,
 
-  application: (name: string) => `import { ExpressX, Application } from '@expressx/core';
+  application: (name: string) => `import { ExpressX, Application } from '@expressxjs/core';
 
 @Application({
   port: 3000,

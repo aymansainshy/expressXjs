@@ -14,7 +14,7 @@ export function verifyExpressXProject(): void {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
-    if (!deps['@expressx/core']) {
+    if (!deps['@expressxjs/core']) {
         const error = new Error('@expressxjs/core is not installed in this project, please run "npm install @expressxjs/core" or "yarn add @expressxjs/core"');
         logger.error(error.message, 'Project', error);
         throw error;

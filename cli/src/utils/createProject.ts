@@ -10,6 +10,11 @@ export interface CreateProjectOptions {
   skipGit?: boolean;
 }
 
+const cliPackage = require('../../package.json') as {
+  version: string;
+  dependencies: Record<string, string>;
+};
+
 // --- Project Scaffolding ---
 export function createProject(projectName: string, options: CreateProjectOptions = {}): void {
   const projectPath = path.join(process.cwd(), projectName);
@@ -55,10 +60,10 @@ export function createProject(projectName: string, options: CreateProjectOptions
       'generate:service': 'expressx generate service'
     },
     dependencies: {
-      '@expressx/core': '^1.0.0'
+      '@expressxjs/core': cliPackage.dependencies['@expressxjs/core']
     },
     devDependencies: {
-      '@expressx/cli': '^1.0.0',
+      '@expressxjs/cli': cliPackage.version,
       '@types/node': '^20.0.0',
       'typescript': '^5.0.0',
       'ts-node': '^10.9.0'
@@ -184,7 +189,7 @@ ${projectName}/
 }
 
 function createDefaultTemplate(projectPath: string, projectName: string): void {
-  const mainApp = `import { ExpressX, Application } from '@expressx/core';
+  const mainApp = `import { ExpressX, Application } from '@expressxjs/core';
 
 @Application({
   port: 3000
@@ -203,7 +208,7 @@ export class ${toPascalCase(projectName)}App extends ExpressX {
 
   fs.writeFileSync(path.join(projectPath, 'src', 'main.ts'), mainApp);
 
-  const exampleController = `import { Controller, Get } from '@expressx/core';
+  const exampleController = `import { Controller, Get } from '@expressxjs/core';
 
 @Controller('/api')
 export class AppController {
@@ -230,7 +235,7 @@ export class AppController {
 
 function createApiTemplate(projectPath: string, projectName: string): void {
   // API template with more REST endpoints
-  const mainApp = `import { ExpressX, Application } from '@expressx/core';
+  const mainApp = `import { ExpressX, Application } from '@expressxjs/core';
 
 @Application({
   port: 3000,
@@ -251,7 +256,7 @@ export class ${toPascalCase(projectName)}App extends ExpressX {
 
   fs.writeFileSync(path.join(projectPath, 'src', 'main.ts'), mainApp);
 
-  const apiController = `import { Controller, Get, Post, Put, Delete } from '@expressx/core';
+  const apiController = `import { Controller, Get, Post, Put, Delete } from '@expressxjs/core';
 
   @Controller('/user')
   export class UserController {
@@ -277,7 +282,7 @@ export class ${toPascalCase(projectName)}App extends ExpressX {
 
 function createFullTemplate(projectPath: string, projectName: string): void {
   // Full template with organized structure
-  const mainApp = `import { ExpressX, Application } from '@expressx/core';
+  const mainApp = `import { ExpressX, Application } from '@expressxjs/core';
 
 @Application({
   port: 3000,
@@ -299,7 +304,7 @@ export class ${toPascalCase(projectName)}App extends ExpressX {
   fs.writeFileSync(path.join(projectPath, 'src', 'main.ts'), mainApp);
 
   // Create example files in subdirectories
-  const controller = `import { Controller, Get } from '@expressx/core';
+  const controller = `import { Controller, Get } from '@expressxjs/core';
 import { AppService } from '../services/app.service';
 
 @Controller('/api')
@@ -313,7 +318,7 @@ export class AppController {
 }
 `;
 
-  const service = `import { Injectable } from '@expressx/core';
+  const service = `import { Injectable } from '@expressxjs/core';
 
 @Injectable()
 export class AppService {
@@ -326,7 +331,7 @@ export class AppService {
 }
 `;
 
-  const middleware = `import { Middleware } from '@expressx/core';
+  const middleware = `import { Middleware } from '@expressxjs/core';
 
 @Middleware()
 export class LoggerMiddleware {

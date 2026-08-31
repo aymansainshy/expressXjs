@@ -1,6 +1,6 @@
 import path from "path";
 import { CachedFileMetadata, FileCache } from "../constant/scanInerfaces";
-import { ExpressXScanner } from "@expressx/core/scanner";
+import { ExpressXScanner } from "@expressxjs/core/scanner";
 import { logger } from "../constant/logger";
 
 export interface BuildOptions {

@@ -64,14 +64,14 @@ ExpressX is a modern Express.js framework that uses TypeScript decorators for ro
 
 ```bash
 NOT available yet .
-npm install -g @expressx/cli
+npm install -g @expressxjs/cli
 ```
 
 ### Local Installation
 
 ```bash
 NOT available yet .
-npm install --save-dev @expressx/cli
+npm install --save-dev @expressxjs/cli
 ```
 
 ### Verify Installation
@@ -108,7 +108,7 @@ The generated project includes an example controller:
 
 ```typescript
 // src/app.controller.ts
-import { Controller, Get } from "@expressx/core";
+import { Controller, Get } from "@expressxjs/core";
 
 @Controller("/api")
 export class AppController {
@@ -473,7 +473,7 @@ expressx g middleware Auth src/modules/users
 #### Generated Controller
 
 ```typescript
-import { Controller, Get, Post, Put, Delete } from "@expressx/core";
+import { Controller, Get, Post, Put, Delete } from "@expressxjs/core";
 
 @Controller("/user")
 export class UserController {
@@ -507,7 +507,7 @@ export class UserController {
 #### Generated Service
 
 ```typescript
-import { Injectable } from "@expressx/core";
+import { Injectable } from "@expressxjs/core";
 
 @Injectable()
 export class AuthService {
@@ -520,7 +520,7 @@ export class AuthService {
 #### Generated Middleware
 
 ```typescript
-import { Middleware } from "@expressx/core";
+import { Middleware } from "@expressxjs/core";
 
 @Middleware()
 export class LoggerMiddleware {
@@ -585,10 +585,10 @@ ExpressX configuration is stored in `package.json`:
     "generate": "expressx generate"
   },
   "dependencies": {
-    "@expressx/core": "^1.0.0"
+    "@expressxjs/core": "^1.0.0"
   },
   "devDependencies": {
-    "@expressx/cli": "^1.0.0",
+    "@expressxjs/cli": "^1.0.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }

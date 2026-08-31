@@ -10,13 +10,14 @@ import { Generator } from './core/generator';
 import { DevServer } from './core/devServer';
 import { buildCommand } from './utils/builder';
 
+const cliPackage = require('../package.json') as { version: string };
 const program = new Command();
 
 // --- CLI Configuration ---
 program
   .name('expressx')
   .description('ExpressX CLI - Modern Express.js framework with decorators')
-  .version('1.0.0')
+  .version(cliPackage.version)
   .addHelpText('after', `
 ${colors.bold('Examples:')}
   ${colors.cyan('$ expressx new MyApplication')}        Create a new project

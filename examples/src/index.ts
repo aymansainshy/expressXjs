@@ -1,10 +1,10 @@
 
 import { MyApplication } from "./application";
-import { ExpressXContainer } from '@expressx/core';
-import { APP_TOKEN } from "@expressx/core";
-import { ExpressX, ExpressXLogger } from "@expressx/core";
+import { ExpressXContainer } from '@expressxjs/core';
+import { APP_TOKEN } from "@expressxjs/core";
+import { ExpressX, ExpressXLogger } from "@expressxjs/core";
 
-// import { ExpressXFactory } from "@expressx/core";
+// import { ExpressXFactory } from "@expressxjs/core";
 // import { createServer } from "http";
 
 const logger = new ExpressXLogger();
