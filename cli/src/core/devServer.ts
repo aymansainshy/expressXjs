@@ -1,7 +1,6 @@
 import path from 'path';
 import fs, { existsSync } from 'fs';
 import chokidar, { FSWatcher } from 'chokidar';
-import { colors } from "../constant/colors";
 import { spawn, ChildProcess } from 'child_process';
 import { shouldIgnoreWatchPath } from "../constant/ignoreFiles";
 import { CachedFileMetadata, FileCache } from '../constant/scanInerfaces';
@@ -37,23 +36,15 @@ export class DevServer {
   }
 
   async start(): Promise<void> {
-    console.log(colors.green(`\n${frameworkLogo}\n`));
+    logger.info(frameworkLogo, 'DevServer');
 
     // Display enabled flags
     if (this.options.nodeFlags && this.options.nodeFlags.length > 0) {
-      console.log(colors.cyan('⚙️  Node.js flags:'));
-      this.options.nodeFlags.forEach(arg => {
-        console.log(`   ${arg}`);
-      });
-      console.log('');
+      logger.info(`Node.js flags: ${this.options.nodeFlags.join(' ')}`, 'DevServer');
     }
 
     if (this.options.appFlags && this.options.appFlags.length > 0) {
-      console.log(colors.green('🎯 Application flags:'));
-      this.options.appFlags.forEach(arg => {
-        console.log(`   ${arg}`);
-      });
-      console.log('');
+      logger.info(`Application flags: ${this.options.appFlags.join(' ')}`, 'DevServer');
     }
 
     await this.initializeCache();
@@ -258,7 +249,7 @@ export class DevServer {
     this.child.on('exit', (code, signal) => {
       // Clear the child reference when process exits
       const wasRestarting = this.isRestarting;
-      this.child = null; // ✅ FIX: Clear reference
+      this.child = null; // Clear reference
 
       if (signal === 'SIGTERM' || wasRestarting) {
         return;
@@ -272,7 +263,7 @@ export class DevServer {
 
     this.child.on('error', (err) => {
       logger.error(`Failed to start the application process: ${err.message}`, 'DevServer', err);
-      this.child = null; // ✅ FIX: Clear reference on spawn error
+      this.child = null; // Clear reference on spawn error
     });
   }
 
@@ -346,7 +337,6 @@ export class DevServer {
     const relativePath = path.relative(process.cwd(), filepath).replace(/\\/g, '/');
     const absolutePath = path.resolve(filepath);
 
-    console.log(`\n${'─'.repeat(60)}`);
     logger.info(`File ${action}: ${relativePath}`, 'Watcher');
 
     let cacheUpdated = false;

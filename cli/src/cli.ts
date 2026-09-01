@@ -168,7 +168,7 @@ program
   .command('new <project-name>')
   .alias('create')
   .description('Create a new ExpressX project with complete scaffolding')
-  .option('-t, --template <template>', 'Project template: default, api, full (default: default)')
+  .option('-t, --template <template>', 'Project template: default, api, full (default: full)')
   .option('--skip-install', 'Skip npm install after creation')
   .option('--skip-git', 'Skip git initialization')
   .addHelpText('before', `
@@ -179,13 +179,13 @@ configurations, and example code to get you started quickly.
 `)
   .addHelpText('after', `
 ${colors.bold('Templates:')}
-  ${colors.cyan('default')}  - Basic project with one controller
-  ${colors.cyan('api')}      - REST API template with CRUD operations
-  ${colors.cyan('full')}     - Complete structure with organized folders
+  ${colors.cyan('default')}  - Lean app with a complete users resource
+  ${colors.cyan('api')}      - REST API plus global exception handling
+  ${colors.cyan('full')}     - Production-style API with the complete request pipeline
 
 ${colors.bold('Examples:')}
   ${colors.cyan('$ expressx new my-app')}
-    Create basic project
+    Create the recommended full project
 
   ${colors.cyan('$ expressx new my-api --template api')}
     Create REST API project
@@ -200,43 +200,27 @@ ${colors.bold('Examples:')}
     Create full project, skip install and git init
 
 ${colors.bold('What gets created:')}
-  • package.json         - Dependencies and scripts
-  • tsconfig.json        - TypeScript configuration
-  • src/main.ts          - Application entry point
-  • src/app.controller.ts - Example controller
-  • .gitignore           - Git ignore rules (unless --skip-git)
-  • README.md            - Project documentation
+  • A runnable application and HTTP server entrypoint
+  • A users resource with controller, service, DTO, and CRUD routes
+  • Current ExpressX package configuration and production build scripts
+  • TypeScript, environment, Git, and project documentation files
 
 ${colors.bold('Template: default')}
-  Basic structure with minimal setup
-  ├── src/
-  │   ├── main.ts
-  │   └── app.controller.ts
-  └── ...
+  Lean feature-first structure
+  ├── src/application.ts
+  ├── src/index.ts
+  └── src/modules/users/
 
 ${colors.bold('Template: api')}
-  REST API focused with CRUD examples
-  ├── src/
-  │   ├── main.ts
-  │   └── users.controller.ts (with GET/POST/PUT/DELETE)
-  └── ...
+  Adds a global exception handler to the default API
 
 ${colors.bold('Template: full')}
-  Organized structure for larger projects
-  ├── src/
-  │   ├── controllers/
-  │   │   └── app.controller.ts
-  │   ├── services/
-  │   │   └── app.service.ts
-  │   ├── middlewares/
-  │   │   └── logger.middleware.ts
-  │   ├── interceptors/
-  │   └── main.ts
-  └── ...
+  Adds an API-key guard, request logger, route timing interceptor,
+  response envelope interceptor, and global exception handler
 
 ${colors.bold('Next steps after creation:')}
   ${colors.cyan('cd <project-name>')}
-  ${colors.cyan('npm install')}        (unless --skip-install)
+  ${colors.cyan('npm install')}        (only when using --skip-install)
   ${colors.cyan('npm run dev')}
 `)
   .action((projectName: string, options: any) => {
@@ -267,17 +251,24 @@ ${colors.bold('Available Types:')}
   ${colors.cyan('service')}      - Business logic and data access
   ${colors.cyan('middleware')}   - Request/response processing
   ${colors.cyan('interceptor')}  - Cross-cutting concerns
+  ${colors.cyan('guard')}        - Route authorization
+  ${colors.cyan('exception')}    - Global exception handler
+  ${colors.cyan('dto')}          - Create and update input types
   ${colors.cyan('application')}  - Main application class
+  ${colors.cyan('resource')}     - Controller, service, and DTO together
 
 ${colors.bold('Examples:')}
   ${colors.cyan('$ expressx generate controller User')}
-    Creates: src/user.controller.ts with UserController class
+    Creates: src/controllers/user.controller.ts
 
   ${colors.cyan('$ expressx g service Auth')}
-    Creates: src/auth.service.ts with AuthService class
+    Creates: src/services/auth.service.ts
 
   ${colors.cyan('$ expressx g middleware Logger')}
-    Creates: src/logger.middleware.ts with LoggerMiddleware class
+    Creates: src/middlewares/logger.middleware.ts
+
+  ${colors.cyan('$ expressx g resource Product')}
+    Creates a CRUD feature in src/modules/products/
 
   ${colors.cyan('$ expressx g controller Product src/modules/products')}
     Creates: src/modules/products/product.controller.ts
@@ -296,53 +287,14 @@ ${colors.bold('Naming Convention:')}
   Class: UserProfileController
   File:  user-profile.controller.ts
 
-${colors.bold('Generated Controller Example:')}
-  @Controller('/user')
-  export class UserController {
-    @GET('/') 
-    async getAll(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @GET('/:id') 
-    async getById(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @POST('/') 
-    async create(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @PUT('/:id')
-    async update(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @DELETE('/:id') 
-    async destroy(@Req() req: Request): Promise<HttpResponse | any> { }
-  }
-
-${colors.bold('Generated Service Example:')}
-  @Injectable()
-  export class AuthService {
-    async getAll() {
-      return { success: true };
-    }
-  }
-
-${colors.bold('Generated Middleware Example:')}
-  export class LoggerMiddleware implements ExpressXMiddleware {
-    use(ctx: ExpressXContext) {
-      console.log(\`[\${new Date()}] \${ctx.req.method} \${ctx.req.url}\`);
-    }
-  }
-
 ${colors.bold('Workflow Example:')}
-  Create a complete user module:
-  ${colors.cyan('$ expressx g controller User src/modules/users')}
-  ${colors.cyan('$ expressx g service User src/modules/users')}
-  ${colors.cyan('$ expressx g service UserValidator src/modules/users')}
+  Create a complete product module in one command:
+  ${colors.cyan('$ expressx g resource Product')}
+  ${colors.cyan('$ expressx g guard Admin')}
 `)
   .action((type: string, name: string, customPath?: string, options?: any) => {
     try {
       verifyExpressXProject();
-
-      if (options?.dryRun) {
-        console.log(colors.yellow('🔍 Dry run mode - no files will be created\n'));
-      }
 
       const generator = new Generator();
       generator.generate(type, name, customPath, options);
@@ -362,7 +314,7 @@ program
       if (cmd) {
         cmd.help();
       } else {
-        console.log(colors.red(`Unknown command: ${command}`));
+        logger.error(`Unknown command: ${command}`, 'CLI');
         program.help();
       }
     } else {

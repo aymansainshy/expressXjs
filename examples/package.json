@@ -11,7 +11,7 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "expressx start --inspect --max-old-space-size=4096",
+    "dev": "expressx start",
     "build": "rm -rf dist && expressx build --verbose && tsc",
     "dev3": "EXPRESSX_RUNTIME=ts port=5000 nodemon src/index.ts",
     "start": "node dist/index.js",

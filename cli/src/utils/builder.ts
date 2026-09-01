@@ -13,8 +13,7 @@ export interface BuildOptions {
 export async function buildCommand(options: BuildOptions = {}): Promise<void> {
   const verbose = options.verbose || false;
 
-  console.log('\n🔨 ExpressX Build Process\n');
-  console.log('═'.repeat(60) + '\n');
+  logger.info('Starting ExpressX build preparation', 'Build');
 
   // Show build options
   if (verbose) {
@@ -75,26 +74,24 @@ export async function buildCommand(options: BuildOptions = {}): Promise<void> {
       'Build'
     );
 
-    // Show TypeScript compilation hints
-    console.log('\n' + '═'.repeat(60));
-    console.log('✅ Build preparation complete!\n');
-    console.log('💡 Next step: Run TypeScript compiler');
+    logger.success('Build preparation complete', 'Build');
+    logger.info('Next step: run the TypeScript compiler', 'Build');
 
     if (options.minify || options.sourcemap || options.output) {
-      console.log('   Note: Additional options detected. Configure your tsconfig.json:');
+      logger.info('Additional options detected. Configure tsconfig.json as follows:', 'Build');
       if (options.output) {
-        console.log(`   - Set "outDir": "${outputDir}"`);
+        logger.info(`Set "outDir" to "${outputDir}"`, 'Build');
       }
       if (options.sourcemap) {
-        console.log('   - Set "sourceMap": true');
+        logger.info('Set "sourceMap" to true', 'Build');
       }
       if (options.minify) {
-        console.log('   - Consider using a bundler like esbuild or webpack for minification');
+        logger.info('Use a bundler such as esbuild or webpack for minification', 'Build');
       }
     }
 
-    console.log('   Command: tsc\n');
-    console.log(`📋 Remember to include ${outputDir}/.expressx/ in your deployment!\n`);
+    logger.info('Command: tsc', 'Build');
+    logger.info(`Include ${outputDir}/.expressx/ in your deployment`, 'Build');
 
     if (verbose) {
       logger.debug(

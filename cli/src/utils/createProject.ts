@@ -1,13 +1,20 @@
-import path from 'path';
+import { spawnSync } from 'child_process';
 import fs from 'fs';
-import { colors } from '../constant/colors';
+import path from 'path';
+import { createResourceTemplates } from '../constant/appComponents';
 import { logger } from '../constant/logger';
-import { toPascalCase } from './toPascalCase';
+import { toKebabCase } from './toKebabCase';
+
+export type ProjectTemplate = 'default' | 'api' | 'full';
 
 export interface CreateProjectOptions {
-  template?: 'default' | 'api' | 'full';
+  template?: ProjectTemplate;
   skipInstall?: boolean;
   skipGit?: boolean;
+}
+
+interface ProjectFileMap {
+  [relativePath: string]: string;
 }
 
 const cliPackage = require('../../package.json') as {
@@ -15,334 +22,375 @@ const cliPackage = require('../../package.json') as {
   dependencies: Record<string, string>;
 };
 
-// --- Project Scaffolding ---
+const supportedTemplates: ProjectTemplate[] = ['default', 'api', 'full'];
+
 export function createProject(projectName: string, options: CreateProjectOptions = {}): void {
-  const projectPath = path.join(process.cwd(), projectName);
+  const template = options.template || 'full';
+  if (!supportedTemplates.includes(template)) {
+    throw new Error(
+      `Unknown template "${template}". Choose one of: ${supportedTemplates.join(', ')}.`,
+    );
+  }
 
+  const projectPath = resolveProjectPath(projectName);
   if (fs.existsSync(projectPath)) {
-    logger.error(`Directory already exists: ${projectName}`, 'Project');
-    process.exit(1);
+    throw new Error(`Directory already exists: ${projectName}`);
   }
 
-  const template = options.template || 'default';
-  const skipInstall = options.skipInstall || false;
-  const skipGit = options.skipGit || false;
+  const directoryName = path.basename(projectPath);
+  const packageName = toKebabCase(directoryName).toLowerCase();
+  const files = createProjectFiles(packageName, template);
 
-  logger.info(`Creating new ExpressX project "${projectName}" (template: ${template})`, 'Project');
-  if (skipInstall) logger.debug('Skipping npm install', 'Project');
-  if (skipGit) logger.debug('Skipping git initialization', 'Project');
+  logger.info(
+    `Creating ExpressX project "${packageName}" with the ${template} template`,
+    'Project',
+  );
 
-  // Create directory structure
-  fs.mkdirSync(projectPath);
-  fs.mkdirSync(path.join(projectPath, 'src'));
-  logger.debug(`Created project directory: ${projectPath}`, 'Project');
-
-  // Template-specific directories
-  if (template === 'full') {
-    fs.mkdirSync(path.join(projectPath, 'src', 'controllers'));
-    fs.mkdirSync(path.join(projectPath, 'src', 'services'));
-    fs.mkdirSync(path.join(projectPath, 'src', 'middlewares'));
-    fs.mkdirSync(path.join(projectPath, 'src', 'interceptors'));
-    logger.debug('Created full-template folder structure', 'Project');
+  fs.mkdirSync(projectPath, { recursive: true });
+  for (const [relativePath, content] of Object.entries(files)) {
+    const filePath = path.join(projectPath, relativePath);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, content, 'utf-8');
+    logger.debug(`Created ${relativePath}`, 'Project');
   }
 
-  // Create package.json
+  if (!options.skipGit) {
+    runSetupCommand('git', ['init'], projectPath, 'Git repository');
+  }
+
+  if (!options.skipInstall) {
+    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    runSetupCommand(npmCommand, ['install'], projectPath, 'Dependencies');
+  }
+
+  logger.success(`Project "${packageName}" created successfully`, 'Project');
+  printNextSteps(projectName, options);
+}
+
+function resolveProjectPath(projectName: string): string {
+  const trimmedName = projectName.trim();
+  if (!trimmedName || path.isAbsolute(trimmedName)) {
+    throw new Error('Project name must be a non-empty relative path.');
+  }
+
+  const root = process.cwd();
+  const resolved = path.resolve(root, trimmedName);
+  if (resolved === root || !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error('Project directory must be created inside the current directory.');
+  }
+  return resolved;
+}
+
+function createProjectFiles(projectName: string, template: ProjectTemplate): ProjectFileMap {
   const packageJson = {
     name: projectName,
-    version: '1.0.0',
-    description: `ExpressX application - ${template} template`,
+    version: '0.1.0',
+    private: true,
+    description: `ExpressX application generated with the ${template} template`,
+    type: 'commonjs',
     main: 'dist/index.js',
     scripts: {
-      dev: 'expressx start',
-      build: 'tsc',
+      dev: 'expressx dev',
+      build: 'expressx build && tsc',
       start: 'node dist/index.js',
-      'generate:controller': 'expressx generate controller',
-      'generate:service': 'expressx generate service'
+      typecheck: 'tsc --noEmit',
+      'generate:resource': 'expressx generate resource',
+    },
+    expressx: {
+      sourceDir: 'src',
+      outDir: 'dist',
+      main: 'src/index.ts',
     },
     dependencies: {
-      '@expressxjs/core': cliPackage.dependencies['@expressxjs/core']
+      '@expressxjs/core': cliPackage.dependencies['@expressxjs/core'],
+      express: '^5.2.1',
     },
     devDependencies: {
       '@expressxjs/cli': cliPackage.version,
-      '@types/node': '^20.0.0',
-      'typescript': '^5.0.0',
-      'ts-node': '^10.9.0'
-    }
+      '@types/node': '^24.0.0',
+      typescript: '^5.5.2',
+    },
   };
 
-  fs.writeFileSync(
-    path.join(projectPath, 'package.json'),
-    JSON.stringify(packageJson, null, 2)
-  );
-
-  // Create tsconfig.json
   const tsConfig = {
     compilerOptions: {
-      target: 'ES2020',
-      module: 'commonjs',
-      lib: ['ES2020'],
-      outDir: './dist',
+      target: 'ES2021',
+      module: 'NodeNext',
+      moduleResolution: 'NodeNext',
       rootDir: './src',
+      outDir: './dist',
       strict: true,
       esModuleInterop: true,
-      skipLibCheck: true,
       forceConsistentCasingInFileNames: true,
+      skipLibCheck: true,
       experimentalDecorators: true,
       emitDecoratorMetadata: true,
-      moduleResolution: 'node',
+      sourceMap: true,
       declaration: true,
       declarationMap: true,
-      sourceMap: true
     },
-    include: ['src'],
-    exclude: ['node_modules', 'dist']
+    include: ['src/**/*.ts'],
+    exclude: ['node_modules', 'dist'],
   };
 
-  fs.writeFileSync(
-    path.join(projectPath, 'tsconfig.json'),
-    JSON.stringify(tsConfig, null, 2)
-  );
-
-  // Create .gitignore (unless skipped)
-  if (!skipGit) {
-    const gitignore = `node_modules/
+  const files: ProjectFileMap = {
+    'package.json': `${JSON.stringify(packageJson, null, 2)}\n`,
+    'tsconfig.json': `${JSON.stringify(tsConfig, null, 2)}\n`,
+    '.gitignore': `node_modules/
 dist/
+src/.expressx/
 *.log
 .env
 .DS_Store
+`,
+    '.env.example': `PORT=3000
+API_KEY=
+`,
+    'src/application.ts': createApplicationTemplate(),
+    'src/index.ts': createBootstrapTemplate(projectName, 'MyApplication'),
+  };
+
+  addResource(files, 'User', template === 'full');
+
+  if (template === 'api' || template === 'full') {
+    files['src/common/exceptions/app.exception-handler.ts'] = createExceptionHandlerTemplate();
+  }
+
+  if (template === 'full') {
+    files['src/common/guards/api-key.guard.ts'] = createGuardTemplate();
+    files['src/common/middlewares/request-logger.middleware.ts'] = createMiddlewareTemplate();
+    files['src/common/interceptors/timing.interceptor.ts'] = createInterceptorTemplate();
+    files['src/common/interceptors/response-envelope.interceptor.ts'] = createGlobalInterceptorTemplate();
+  }
+
+  files['README.md'] = createReadme(projectName, template, Object.keys(files));
+  return files;
+}
+
+function addResource(files: ProjectFileMap, name: string, withPipeline: boolean): void {
+  const resourceFiles = createResourceTemplates(name, { withPipeline });
+  for (const [fileName, content] of Object.entries(resourceFiles)) {
+    files[`src/modules/users/${fileName}`] = content;
+  }
+}
+
+function createApplicationTemplate(): string {
+  return `import {
+  Application,
+  ExpressX,
+  ExpressXApp,
+  ExpressXLogger,
+  OnInitExpressXApp,
+} from '@expressxjs/core';
+import express from 'express';
+
+const logger = new ExpressXLogger();
+
+@Application()
+export class MyApplication extends ExpressX {
+  public async preInit(): Promise<void> {
+    // Connect databases, caches, and message brokers here.
+  }
+
+  public async onInit(app: OnInitExpressXApp): Promise<void> {
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+  }
+
+  public postInit(app: ExpressXApp): void {
+    void app;
+    logger.success('Application initialized', 'Bootstrap');
+  }
+}
 `;
-    fs.writeFileSync(path.join(projectPath, '.gitignore'), gitignore);
+}
+
+function createBootstrapTemplate(projectName: string, applicationClassName: string): string {
+  return `import { ExpressXFactory, ExpressXLogger } from '@expressxjs/core';
+import { createServer } from 'node:http';
+import { parseArgs } from 'node:util';
+import { ${applicationClassName} } from './application';
+
+const logger = new ExpressXLogger();
+
+async function bootstrap(): Promise<void> {
+  const { values } = parseArgs({
+    options: { port: { type: 'string', short: 'p' } },
+    strict: false,
+  });
+  const port = Number(values.port ?? process.env.PORT ?? 3000);
+  const app = await ExpressXFactory.createApp<${applicationClassName}>();
+  const server = createServer(app);
+
+  server.listen(port, () => {
+    logger.success('${projectName} running on http://localhost:' + port, 'Bootstrap');
+  });
+}
+
+bootstrap().catch((error: unknown) => {
+  const cause = error instanceof Error ? error : String(error);
+  logger.error('Failed to start application', 'Bootstrap', cause);
+  process.exitCode = 1;
+});
+`;
+}
+
+function createExceptionHandlerTemplate(): string {
+  return `import {
+  ExceptionHandler,
+  HttpErrorResponse,
+  UseGlobalExceptionHandler,
+} from '@expressxjs/core';
+
+@UseGlobalExceptionHandler()
+export class AppExceptionHandler extends ExceptionHandler {
+  public catch(error: unknown): HttpErrorResponse {
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const statusCode = message.startsWith('Unauthorized') ? 401 : 500;
+    return new HttpErrorResponse(statusCode, { message, statusCode });
   }
+}
+`;
+}
 
-  // Create main application file based on template
-  if (template === 'api') {
-    createApiTemplate(projectPath, projectName);
-  } else if (template === 'full') {
-    createFullTemplate(projectPath, projectName);
-  } else {
-    createDefaultTemplate(projectPath, projectName);
+function createGuardTemplate(): string {
+  return `import { Guard, Request } from '@expressxjs/core';
+
+export class ApiKeyGuard extends Guard {
+  public canActivate(req: Request): boolean {
+    const configuredKey = process.env.API_KEY;
+    if (!configuredKey) return true;
+    return req.headers['x-api-key'] === configuredKey;
   }
+}
+`;
+}
 
-  // Create README
-  const readme = `# ${projectName}
+function createMiddlewareTemplate(): string {
+  return `import {
+  ExpressXLogger,
+  ExpressXMiddleware,
+  HttpContext,
+} from '@expressxjs/core';
 
-A new ExpressX application (${template} template).
+const logger = new ExpressXLogger();
 
-## Getting Started
+export class RequestLoggerMiddleware extends ExpressXMiddleware {
+  public use(ctx: HttpContext): void {
+    logger.info(\`[\${ctx.req.method}] \${ctx.req.originalUrl}\`, 'Request');
+  }
+}
+`;
+}
+
+function createInterceptorTemplate(): string {
+  return `import { ExpressXInterceptor, Handler, HttpContext } from '@expressxjs/core';
+
+export class TimingInterceptor extends ExpressXInterceptor {
+  public async intercept(ctx: HttpContext, callHandler: Handler): Promise<unknown> {
+    const startedAt = Date.now();
+    const result = await callHandler.handle();
+    ctx.res.setHeader('x-response-time', \`\${Date.now() - startedAt}ms\`);
+    return result;
+  }
+}
+`;
+}
+
+function createGlobalInterceptorTemplate(): string {
+  return `import {
+  ExpressXInterceptor,
+  Handler,
+  HttpContext,
+  HttpResponse,
+  UseGlobalInterceptor,
+} from '@expressxjs/core';
+
+@UseGlobalInterceptor()
+export class ResponseEnvelopeInterceptor extends ExpressXInterceptor {
+  public async intercept(ctx: HttpContext, callHandler: Handler): Promise<unknown> {
+    const result = await callHandler.handle();
+    if (!(result instanceof HttpResponse)) return result;
+
+    return new HttpResponse(result.code, {
+      success: true,
+      data: result.data,
+      path: ctx.req.originalUrl,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+`;
+}
+
+function createReadme(
+  projectName: string,
+  template: ProjectTemplate,
+  filePaths: string[],
+): string {
+  const sourceFiles = filePaths
+    .filter((filePath) => filePath.startsWith('src/'))
+    .sort()
+    .map((filePath) => `- \`${filePath}\``)
+    .join('\n');
+
+  return `# ${projectName}
+
+ExpressX application generated with the **${template}** template.
+
+## Start the application
 
 \`\`\`bash
-# Install dependencies
-${skipInstall ? '# (skipped)' : 'npm install'}
-
-# Run in development mode
+npm install
 npm run dev
+\`\`\`
 
-# Build for production
+The example API is available at \`http://localhost:3000/users\`.
+
+## Production build
+
+\`\`\`bash
 npm run build
-
-# Run production build
 npm start
 \`\`\`
 
-## Generate Code
+## Generate code
 
 \`\`\`bash
-# Generate controller
-expressx generate controller User
+# A complete feature with controller, service, and DTO
+npx expressx generate resource Product
 
-# Generate service
-expressx generate service Auth
-
-# Generate middleware
-expressx generate middleware Logger
+# Individual components
+npx expressx generate controller Health
+npx expressx generate service Notification
+npx expressx generate guard Auth
 \`\`\`
 
-## Project Structure
+## Generated source
 
-\`\`\`
-${projectName}/
-├── src/
-│   ├── main.ts              # Application entry point
-│   └── app.controller.ts    # Example controller
-├── package.json
-├── tsconfig.json
-└── README.md
-\`\`\`
+${sourceFiles}
 `;
-
-  fs.writeFileSync(path.join(projectPath, 'README.md'), readme);
-
-  logger.success(`Project "${projectName}" created successfully`, 'Project');
-
-  console.log(colors.bold('\nNext steps:\n'));
-  console.log(colors.cyan(`  cd ${projectName}`));
-
-  if (!skipInstall) {
-    console.log(colors.cyan('  npm install'));
-  }
-
-  if (!skipGit) {
-    console.log(colors.cyan('  git init'));
-  }
-
-  console.log(colors.cyan('  npm run dev\n'));
 }
 
-function createDefaultTemplate(projectPath: string, projectName: string): void {
-  const mainApp = `import { ExpressX, Application } from '@expressxjs/core';
-
-@Application({
-  port: 3000
-})
-export class ${toPascalCase(projectName)}App extends ExpressX {
-  async onInit() {
-    console.log('🚀 ${projectName} is starting...');
-  }
-
-  async onReady() {
-    console.log('✅ ${projectName} is ready!');
-    console.log(\`🌍 Server running at http://localhost:\${this.config.port}\`);
-  }
-}
-`;
-
-  fs.writeFileSync(path.join(projectPath, 'src', 'main.ts'), mainApp);
-
-  const exampleController = `import { Controller, Get } from '@expressxjs/core';
-
-@Controller('/api')
-export class AppController {
-  @Get('/')
-  async index() {
-    return {
-      message: 'Welcome to ${projectName}!',
-      version: '1.0.0'
-    };
-  }
-
-  @Get('/health')
-  async health() {
-    return {
-      status: 'ok',
-      timestamp: new Date().toISOString()
-    };
+function runSetupCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  label: string,
+): void {
+  logger.info(`${label}: running ${command} ${args.join(' ')}`, 'Project');
+  const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
+  if (result.error || result.status !== 0) {
+    logger.warn(
+      `${label} setup did not complete. You can run "${command} ${args.join(' ')}" manually.`,
+      'Project',
+    );
   }
 }
-`;
 
-  fs.writeFileSync(path.join(projectPath, 'src', 'app.controller.ts'), exampleController);
-}
-
-function createApiTemplate(projectPath: string, projectName: string): void {
-  // API template with more REST endpoints
-  const mainApp = `import { ExpressX, Application } from '@expressxjs/core';
-
-@Application({
-  port: 3000,
-  cors: true,
-  json: true
-})
-export class ${toPascalCase(projectName)}App extends ExpressX {
-  async onInit() {
-    console.log('🚀 ${projectName} API is starting...');
-  }
-
-  async onReady() {
-    console.log('✅ ${projectName} API is ready!');
-    console.log(\`🌍 API running at http://localhost:\${this.config.port}\`);
-  }
-}
-`;
-
-  fs.writeFileSync(path.join(projectPath, 'src', 'main.ts'), mainApp);
-
-  const apiController = `import { Controller, Get, Post, Put, Delete } from '@expressxjs/core';
-
-  @Controller('/user')
-  export class UserController {
-    @GET('/') 
-    async getAll(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @GET('/:id') 
-    async getById(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @POST('/') 
-    async create(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @PUT('/:id')
-    async update(@Req() req: Request): Promise<HttpResponse | any> { }
-
-    @DELETE('/:id') 
-    async destroy(@Req() req: Request): Promise<HttpResponse | any> { }
-  }
-`;
-
-  fs.writeFileSync(path.join(projectPath, 'src', 'app.controller.ts'), apiController);
-}
-
-function createFullTemplate(projectPath: string, projectName: string): void {
-  // Full template with organized structure
-  const mainApp = `import { ExpressX, Application } from '@expressxjs/core';
-
-@Application({
-  port: 3000,
-  cors: true,
-  json: true
-})
-export class ${toPascalCase(projectName)}App extends ExpressX {
-  async onInit() {
-    console.log('🚀 ${projectName} is starting...');
-  }
-
-  async onReady() {
-    console.log('✅ ${projectName} is ready!');
-    console.log(\`🌍 Server running at http://localhost:\${this.config.port}\`);
-  }
-}
-`;
-
-  fs.writeFileSync(path.join(projectPath, 'src', 'main.ts'), mainApp);
-
-  // Create example files in subdirectories
-  const controller = `import { Controller, Get } from '@expressxjs/core';
-import { AppService } from '../services/app.service';
-
-@Controller('/api')
-export class AppController {
-  constructor(private appService: AppService) {}
-
-  @Get('/')
-  async index() {
-    return this.appService.getInfo();
-  }
-}
-`;
-
-  const service = `import { Injectable } from '@expressxjs/core';
-
-@Injectable()
-export class AppService {
-  getInfo() {
-    return {
-      message: 'Welcome to ${projectName}!',
-      version: '1.0.0'
-    };
-  }
-}
-`;
-
-  const middleware = `import { Middleware } from '@expressxjs/core';
-
-@Middleware()
-export class LoggerMiddleware {
-  use(req: any, res: any, next: any) {
-    console.log(\`[\${new Date().toISOString()}] \${req.method} \${req.url}\`);
-    next();
-  }
-}
-`;
-
-  fs.writeFileSync(path.join(projectPath, 'src', 'controllers', 'app.controller.ts'), controller);
-  fs.writeFileSync(path.join(projectPath, 'src', 'services', 'app.service.ts'), service);
-  fs.writeFileSync(path.join(projectPath, 'src', 'middlewares', 'logger.middleware.ts'), middleware);
+function printNextSteps(projectName: string, options: CreateProjectOptions): void {
+  logger.info(`Next step: cd ${projectName}`, 'Project');
+  if (options.skipInstall) logger.info('Next step: npm install', 'Project');
+  if (options.skipGit) logger.info('Optional next step: git init', 'Project');
+  logger.info('Next step: npm run dev', 'Project');
 }
