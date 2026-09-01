@@ -1,6 +1,6 @@
 {
   "name": "@expressxjs/core",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A lightweight, object-oriented, decorator-based framework on top of Express.js",
   "type": "commonjs",
   "scripts": {
@@ -62,26 +62,31 @@
       "types": "./dist/dicontainer/index.d.ts"
     },
     "./error": {
-      "import": "./dist/error/index.js",
-      "require": "./dist/error/index.js",
-      "types": "./dist/error/index.d.ts"
+      "import": "./dist/errors/index.js",
+      "require": "./dist/errors/index.js",
+      "types": "./dist/errors/index.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/errors/index.js",
+      "require": "./dist/errors/index.js",
+      "types": "./dist/errors/index.d.ts"
     }
   },
   "dependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
     "express": "5.2.1",
     "glob": "^13.0.0",
     "reflect-metadata": "^0.2.2",
+    "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "tsyringe": "^4.8.0"
+    "tsyringe": "^4.8.0",
+    "typescript": "^5.5.2"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.0.0",
     "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.5.2"
+    "ts-jest": "^29.4.6"
   },
   "author": "Ayman",
   "license": "MIT"
