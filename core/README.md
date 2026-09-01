@@ -239,6 +239,40 @@ export class HealthController {
 
 Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`.
 
+## Global interceptors
+
+Use `@UseGlobalInterceptor()` when an interceptor should run for every route. For example, this interceptor wraps successful `HttpResponse` values in a consistent response envelope:
+
+```ts
+import {
+  ExpressXInterceptor,
+  Handler,
+  HttpContext,
+  HttpResponse,
+  UseGlobalInterceptor,
+} from '@expressxjs/core';
+
+@UseGlobalInterceptor()
+export class ResponseEnvelopeInterceptor extends ExpressXInterceptor {
+  public async intercept(
+    ctx: HttpContext,
+    callHandler: Handler,
+  ): Promise<unknown> {
+    const result = await callHandler.handle();
+    if (!(result instanceof HttpResponse)) return result;
+
+    return new HttpResponse(result.code, {
+      success: true,
+      data: result.data,
+      path: ctx.req.originalUrl,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+```
+
+Because this file contains `@UseGlobalInterceptor()`, the scanner discovers and registers it automatically. Global interceptors run in addition to any route-level interceptors declared with `@UseInterceptors()`.
+
 ## Global exception handling
 
 Create one global exception handler to translate thrown values into consistent HTTP responses:
