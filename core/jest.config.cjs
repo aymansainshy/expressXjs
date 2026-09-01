@@ -1,6 +1,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  setupFiles: ['reflect-metadata'],
 
   rootDir: '.',
   testMatch: ['**/*.spec.ts'],
@@ -12,10 +13,9 @@ module.exports = {
     '^@expressX/core/(.*)$': '<rootDir>/src/$1'
   },
 
-  // Decorators need this
-  globals: {
-    'ts-jest': {
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: 'tsconfig.json'
-    }
+    }]
   }
 };
