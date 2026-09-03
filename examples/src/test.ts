@@ -1,4 +1,3 @@
-
 // class User {
 //   username: string;
 //   password: string;
@@ -8,14 +7,12 @@
 //   }
 // }
 
-
 // @injectable()
 // export class UserService {
 //   public async getUserList(): Promise<User[]> {
 //     return [new User("ayman", "password")];
 //   }
 // }
-
 
 // @Controller('/users')
 // export class UserController {
@@ -32,7 +29,6 @@
 //     return HttpResponse.ok(userList);
 //   }
 // }
-
 
 // @Application()
 // export class MyApplication extends ExpressX {
@@ -72,8 +68,6 @@
 //     });
 //   }
 // }
-
-
 
 // const myApp: MyApplication = container.resolve<MyApplication>(MyApplication);
 

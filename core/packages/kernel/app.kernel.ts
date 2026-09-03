@@ -1,12 +1,8 @@
-
 import { Injectable } from '../decorators/di';
 import { ExpressXApp } from '../framework/types';
 import { ExpressXScanner } from '../scanner';
 import { logger } from '../logger/logger';
 import express from 'express';
-
-
-
 
 @Injectable()
 export class Kernel {
@@ -41,11 +37,8 @@ export class Kernel {
     //   framework: 'ExpressXjs'
     // }) as ExpressXApp;
 
-
     this.initialized = true;
     logger.success(`Kernel started in ${Date.now() - startTime}ms`, 'Kernel');
     return this.app;
   }
 }
-
-

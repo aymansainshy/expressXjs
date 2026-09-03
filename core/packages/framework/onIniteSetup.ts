@@ -1,7 +1,7 @@
 // framework/bootstrap-app.ts
-import type { RequestHandler } from "express";
-import { logger } from "../logger/logger";
-import { ExpressXApp } from "./types";
+import type { RequestHandler } from 'express';
+import { logger } from '../logger/logger';
+import { ExpressXApp } from './types';
 
 export type OnInitMiddleware =
   // regular middleware only; error middleware is forbidden
@@ -11,8 +11,7 @@ function assertNotErrorMiddleware(fn: Function) {
   // error middleware signature: (err, req, res, next) => ...
   if (fn.length >= 4) {
     const error = new Error(
-      `Error middleware is not allowed in onInit(). ` +
-      `Use framework global error handler hooks / filters instead.`
+      `Error middleware is not allowed in onInit(). ` + `Use framework global error handler hooks / filters instead.`,
     );
     logger.error(error.message, 'Startup', error);
     throw error;
@@ -20,7 +19,7 @@ function assertNotErrorMiddleware(fn: Function) {
 }
 
 export class OnInitExpressXApp {
-  constructor(private readonly app: ExpressXApp) { }
+  constructor(private readonly app: ExpressXApp) {}
 
   use(mw: OnInitMiddleware): this {
     assertNotErrorMiddleware(mw as any);

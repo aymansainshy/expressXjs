@@ -2,15 +2,11 @@ import path from 'path';
 import fs, { existsSync } from 'fs';
 import chokidar, { FSWatcher } from 'chokidar';
 import { spawn, ChildProcess } from 'child_process';
-import { shouldIgnoreWatchPath } from "../constant/ignoreFiles";
+import { shouldIgnoreWatchPath } from '../constant/ignoreFiles';
 import { CachedFileMetadata, FileCache } from '../constant/scanInerfaces';
 import { ExpressXScanner } from '@expressxjs/core/scanner';
 import { frameworkLogo } from '../constant/appStarter';
 import { logger } from '../constant/logger';
-
-
-
-
 
 export interface DevServerOptions {
   nodeFlags?: string[];
@@ -31,7 +27,7 @@ export class DevServer {
     this.entry = entry;
     this.options = {
       nodeFlags: options.nodeFlags || [],
-      appFlags: options.appFlags || []
+      appFlags: options.appFlags || [],
     };
   }
 
@@ -66,8 +62,7 @@ export class DevServer {
       const { validFiles, updatedCount, removedCount } = await this.validateCachedFiles();
 
       // Report changes
-      const totalChanges = updatedCount + removedCount
-
+      const totalChanges = updatedCount + removedCount;
 
       if (totalChanges > 0) {
         this.cache.decoratorFiles = validFiles;
@@ -76,9 +71,8 @@ export class DevServer {
 
         logger.info(
           `Cache updated - ${updatedCount} file(s) refreshed, ${removedCount} file(s) removed`,
-          '.expressx/cache.json'
+          '.expressx/cache.json',
         );
-
       } else {
         logger.info('.expressx.cache is up-to-date! No changes detected.', '.expressx/cache.json');
       }
@@ -86,8 +80,10 @@ export class DevServer {
       const cacheAge = Date.now() - new Date(this.cache.generatedAt).getTime();
       const ageMinutes = Math.round(cacheAge / 60000);
 
-      logger.info(`Total decorator files: ${this.cache.decoratorFiles.length},  Last updated: ${ageMinutes} minute(s) ago`, '.expressx/cache.json');
-
+      logger.info(
+        `Total decorator files: ${this.cache.decoratorFiles.length},  Last updated: ${ageMinutes} minute(s) ago`,
+        '.expressx/cache.json',
+      );
     } else {
       logger.info('No cache found, creating new cache...', '.expressx/cache.json');
 
@@ -96,11 +92,10 @@ export class DevServer {
         decoratorFiles: [],
         totalScanned: 0,
         generatedAt: new Date().toISOString(),
-        environment: 'development'
+        environment: 'development',
       };
     }
   }
-
 
   /**
    * PHASE 1: Validate existing cache entries using metadata
@@ -132,7 +127,7 @@ export class DevServer {
           validFiles.push({
             path: cachedFile.path,
             mtime: stats.mtimeMs,
-            size: stats.size
+            size: stats.size,
           });
           updatedCount++;
         } else {
@@ -145,7 +140,11 @@ export class DevServer {
       }
     }
 
-    return { validFiles, updatedCount, removedCount };
+    return {
+      validFiles,
+      updatedCount,
+      removedCount,
+    };
   }
 
   /**
@@ -160,11 +159,11 @@ export class DevServer {
       ignoreInitial: true,
       awaitWriteFinish: {
         stabilityThreshold: 200,
-        pollInterval: 100
-      }
+        pollInterval: 100,
+      },
     });
 
-    this.cacheWatcher.on('error', error => {
+    this.cacheWatcher.on('error', (error) => {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`Cache watcher error: ${message}`, '.expressx/cache.json');
     });
@@ -197,7 +196,10 @@ export class DevServer {
       const updatedCache = ExpressXScanner.loadCache(true);
       if (updatedCache) {
         this.cache = updatedCache;
-        logger.debug(`Cache reloaded - ${updatedCache.decoratorFiles.length} decorator file(s)`, '.expressx/cache.json');
+        logger.debug(
+          `Cache reloaded - ${updatedCache.decoratorFiles.length} decorator file(s)`,
+          '.expressx/cache.json',
+        );
       }
     });
   }
@@ -222,11 +224,12 @@ export class DevServer {
     // Build complete command array
     // Format: node [nodeFlags] [entry] [appFlags]
     const nodeArgs = [
-      ...(this.options.nodeFlags || []),      // Custom Node.js flags (--inspect, etc.)
-      '--require', '@expressxjs/core/runtime',  // Required runtime
-      '--enable-source-maps',                 // Source maps
-      this.entry,                             // Entry file
-      ...(this.options.appFlags || [])        // Application flags (--port, etc.)
+      ...(this.options.nodeFlags || []), // Custom Node.js flags (--inspect, etc.)
+      '--require',
+      '@expressxjs/core/runtime', // Required runtime
+      '--enable-source-maps', // Source maps
+      this.entry, // Entry file
+      ...(this.options.appFlags || []), // Application flags (--port, etc.)
     ];
 
     if (this.options.nodeFlags && this.options.nodeFlags.length > 0) {
@@ -236,15 +239,11 @@ export class DevServer {
       logger.debug(`App flags: ${this.options.appFlags.join(' ')}`, 'Startup');
     }
 
-    this.child = spawn(
-      'node',
-      nodeArgs,
-      {
-        stdio: 'inherit',
-        env: process.env,
-        cwd: process.cwd()
-      }
-    );
+    this.child = spawn('node', nodeArgs, {
+      stdio: 'inherit',
+      env: process.env,
+      cwd: process.cwd(),
+    });
 
     this.child.on('exit', (code, signal) => {
       // Clear the child reference when process exits
@@ -267,7 +266,6 @@ export class DevServer {
     });
   }
 
-
   private runDoctor(entry: string): boolean {
     logger.info('ExpressXjs Doctor: Checking your environment...', 'Doctor');
 
@@ -286,12 +284,12 @@ export class DevServer {
         name: 'Runtime Entry',
         passed: !!require.resolve('@expressxjs/core/runtime'),
         error: '@expressxjs/core/runtime is not reachable.',
-      }
+      },
     ];
 
     let allPassed = true;
 
-    checks.forEach(check => {
+    checks.forEach((check) => {
       if (check.passed) {
         logger.info(`${check.name}`, 'Doctor');
       } else {
@@ -315,14 +313,14 @@ export class DevServer {
       ignoreInitial: true,
       awaitWriteFinish: {
         stabilityThreshold: 100,
-        pollInterval: 100
-      }
+        pollInterval: 100,
+      },
     });
 
     this.watcher.on('change', (filepath) => this.handleFileChange(filepath, 'changed'));
     this.watcher.on('add', (filepath) => this.handleFileChange(filepath, 'added'));
     this.watcher.on('unlink', (filepath) => this.handleFileChange(filepath, 'deleted'));
-    this.watcher.on('error', error => {
+    this.watcher.on('error', (error) => {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`File watcher error: ${message}`, 'Watcher');
     });
@@ -342,7 +340,7 @@ export class DevServer {
     let cacheUpdated = false;
 
     if (action === 'deleted') {
-      const index = this.cache.decoratorFiles.findIndex(f => f.path === relativePath);
+      const index = this.cache.decoratorFiles.findIndex((f) => f.path === relativePath);
       if (index !== -1) {
         this.cache.decoratorFiles.splice(index, 1);
         logger.debug(`Removed "${relativePath}" from the cache`, '.expressx/cache.json');
@@ -350,14 +348,14 @@ export class DevServer {
       }
     } else {
       const hasDecorators = this.checkForDecorators(absolutePath);
-      const cachedFile = this.cache.decoratorFiles.find(f => f.path === relativePath);
+      const cachedFile = this.cache.decoratorFiles.find((f) => f.path === relativePath);
 
       if (hasDecorators) {
         const stats = fs.statSync(absolutePath);
         const newData: CachedFileMetadata = {
           path: relativePath,
           mtime: stats.mtimeMs,
-          size: stats.size
+          size: stats.size,
         };
 
         if (!cachedFile) {
@@ -370,7 +368,7 @@ export class DevServer {
           cacheUpdated = true;
         }
       } else if (cachedFile) {
-        this.cache.decoratorFiles = this.cache.decoratorFiles.filter(f => f.path !== relativePath);
+        this.cache.decoratorFiles = this.cache.decoratorFiles.filter((f) => f.path !== relativePath);
         logger.warn(`Removed "${relativePath}" from the cache - no decorators left`, '.expressx/cache.json');
         cacheUpdated = true;
       }
@@ -382,7 +380,10 @@ export class DevServer {
       ExpressXScanner.saveCache(this.cache, true);
       logger.success(`Cache saved - ${this.cache.decoratorFiles.length} decorator file(s)`, '.expressx/cache.json');
     } else {
-      logger.debug(`No cache update needed (${this.cache.decoratorFiles.length} decorator file(s))`, '.expressx/cache.json');
+      logger.debug(
+        `No cache update needed (${this.cache.decoratorFiles.length} decorator file(s))`,
+        '.expressx/cache.json',
+      );
     }
 
     this.scheduleRestart();
@@ -401,7 +402,7 @@ export class DevServer {
       // Fast-Path 3: Decorator name substring (fast)
       const decorators = ExpressXScanner['DECORATORS'] as string[];
 
-      return decorators.some(decorator => {
+      return decorators.some((decorator) => {
         // Quick substring check before regex
         if (!content.includes(decorator)) return false;
 

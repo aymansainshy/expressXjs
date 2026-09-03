@@ -11,7 +11,6 @@ export interface FileCache {
   environment: 'development' | 'production';
 }
 
-
 export interface CachedFileMetadata {
   path: string;
   mtime: number;

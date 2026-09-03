@@ -1,7 +1,7 @@
-import path from "path";
-import { CachedFileMetadata, FileCache } from "../constant/scanInerfaces";
-import { ExpressXScanner } from "@expressxjs/core/scanner";
-import { logger } from "../constant/logger";
+import path from 'path';
+import { CachedFileMetadata, FileCache } from '../constant/scanInerfaces';
+import { ExpressXScanner } from '@expressxjs/core/scanner';
+import { logger } from '../constant/logger';
 
 export interface BuildOptions {
   output?: string;
@@ -19,9 +19,9 @@ export async function buildCommand(options: BuildOptions = {}): Promise<void> {
   if (verbose) {
     logger.debug(
       `Build options - output: ${options.output ?? '(default)'}, ` +
-      `minify: ${options.minify ? 'enabled' : 'disabled'}, ` +
-      `source maps: ${options.sourcemap ? 'enabled' : 'disabled'}`,
-      'Build'
+        `minify: ${options.minify ? 'enabled' : 'disabled'}, ` +
+        `source maps: ${options.sourcemap ? 'enabled' : 'disabled'}`,
+      'Build',
     );
   }
 
@@ -38,7 +38,7 @@ export async function buildCommand(options: BuildOptions = {}): Promise<void> {
     if (verbose) {
       logger.debug(
         `Scanned ${devCache.totalScanned} file(s), found ${devCache.decoratorFiles.length} with decorators`,
-        'Build'
+        'Build',
       );
     }
 
@@ -53,17 +53,13 @@ export async function buildCommand(options: BuildOptions = {}): Promise<void> {
     // Convert source paths to compiled paths
     const prodCache: FileCache = {
       version: devCache.version,
-      decoratorFiles: devCache.decoratorFiles.map((data: CachedFileMetadata) =>
-      ({
+      decoratorFiles: devCache.decoratorFiles.map((data: CachedFileMetadata) => ({
         ...data,
-        path: data.path
-          .replace(config.sourceDir + '/', outputDir + '/')
-          .replace(/\.ts$/, '.js')
-      })
-      ),
+        path: data.path.replace(config.sourceDir + '/', outputDir + '/').replace(/\.ts$/, '.js'),
+      })),
       totalScanned: devCache.totalScanned,
       generatedAt: new Date().toISOString(),
-      environment: 'production'
+      environment: 'production',
     };
 
     ExpressXScanner.saveCache(prodCache, false);
@@ -71,7 +67,7 @@ export async function buildCommand(options: BuildOptions = {}): Promise<void> {
 
     logger.success(
       `Production cache generated: ${prodCachePath} (${prodCache.decoratorFiles.length} file(s) tracked)`,
-      'Build'
+      'Build',
     );
 
     logger.success('Build preparation complete', 'Build');
@@ -96,11 +92,10 @@ export async function buildCommand(options: BuildOptions = {}): Promise<void> {
     if (verbose) {
       logger.debug(
         `Build summary - source: ${config.sourceDir}, output: ${outputDir}, ` +
-        `cache files: 2 (dev + prod), decorator files: ${prodCache.decoratorFiles.length}`,
-        'Build'
+          `cache files: 2 (dev + prod), decorator files: ${prodCache.decoratorFiles.length}`,
+        'Build',
       );
     }
-
   } catch (err) {
     logger.error(`Build failed: ${(err as Error).message}`, 'Build', err as Error);
     process.exit(1);

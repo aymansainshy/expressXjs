@@ -1,10 +1,7 @@
-
-
-import { NextFn, Response } from "../framework";
-import { logger } from "../logger/logger";
-import { HttpResponse } from "../http/http.response";
-import { HttpErrorResponse } from "../http/http.error.response";
-
+import { NextFn, Response } from '../framework';
+import { logger } from '../logger/logger';
+import { HttpResponse } from '../http/http.response';
+import { HttpErrorResponse } from '../http/http.error.response';
 
 export class HttpResponseHandler {
   static async handlerResponse(
@@ -12,7 +9,7 @@ export class HttpResponseHandler {
     res: Response,
     next: NextFn,
     statusCode?: number,
-    redirectUrl?: string
+    redirectUrl?: string,
   ) {
     try {
       const result: HttpResponse | any = await fn();
@@ -23,12 +20,14 @@ export class HttpResponseHandler {
 
       // An HttpErrorResponse reaches here when an error was resolved inside the
       // interceptor chain and no interceptor reshaped it.
-      const status = result instanceof HttpResponse ? result?.code
-        : result instanceof HttpErrorResponse ? result?.statusCode
-          : statusCode || 200;
-      const data = result instanceof HttpResponse ? result?.data
-        : result instanceof HttpErrorResponse ? result?.error
-          : result;
+      const status =
+        result instanceof HttpResponse
+          ? result?.code
+          : result instanceof HttpErrorResponse
+            ? result?.statusCode
+            : statusCode || 200;
+      const data =
+        result instanceof HttpResponse ? result?.data : result instanceof HttpErrorResponse ? result?.error : result;
 
       logger.debug(`Sending response with status ${status}`, 'Response');
       res.status(status).json(data);

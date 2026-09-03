@@ -1,4 +1,3 @@
-
 import { glob } from 'glob';
 import path from 'path';
 import fs from 'fs';
@@ -30,7 +29,7 @@ export interface FileCache {
 }
 
 export class ExpressXScanner {
-  constructor() { }
+  constructor() {}
 
   private static readonly CACHE_VERSION = '1.0.0';
   private static readonly DECORATORS = [
@@ -40,6 +39,15 @@ export class ExpressXScanner {
     'Controller',
   ];
 
+  private static isTypeScriptRuntime(): boolean {
+    const runtime = process.env.EXPRESSX_RUNTIME?.trim().toLowerCase();
+
+    if (runtime === 'ts') return true;
+    if (runtime === 'js') return false;
+
+    return process.env.NODE_ENV?.trim().toLowerCase() === 'development';
+  }
+
   /**
    * Get configuration from package.json
    */
@@ -47,26 +55,31 @@ export class ExpressXScanner {
     const pkgPath = path.join(process.cwd(), 'package.json');
 
     if (!fs.existsSync(pkgPath)) {
-      throw new Error('❌ package.json not found in current directory.');
+      throw new Error(
+        `ExpressX scanner could not find package.json in "${process.cwd()}". ` +
+          'Run the application from the project root.',
+      );
     }
 
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
 
     if (!pkg.expressx?.sourceDir) {
       throw new Error(
-        '❌ Missing "expressx.sourceDir" in package.json.\n\n' +
-        'Add this configuration:\n' +
-        '{\n' +
-        '  "expressx": {\n' +
-        '    "sourceDir": "src"\n' +
-        '  }\n' +
-        '}'
+        'ExpressX scanner cannot start because package.json does not define the required "expressx.sourceDir" setting.\n\n' +
+          'Add an ExpressX configuration similar to:\n' +
+          '{\n' +
+          '  "expressx": {\n' +
+          '    "sourceDir": "src",\n' +
+          '    "outDir": "dist",\n' +
+          '    "main": "src/index.ts"\n' +
+          '  }\n' +
+          '}',
       );
     }
 
     return {
       sourceDir: pkg.expressx.sourceDir,
-      outDir: pkg.expressx.outDir || 'dist'
+      outDir: pkg.expressx.outDir || 'dist',
     };
   }
 
@@ -96,7 +109,7 @@ export class ExpressXScanner {
       if (cache.version !== this.CACHE_VERSION) {
         logger.warn(
           `Cache version mismatch (found ${cache.version}, expected ${this.CACHE_VERSION}) - will regenerate`,
-          '.expressx/cache.json'
+          '.expressx/cache.json',
         );
         return null;
       }
@@ -116,7 +129,9 @@ export class ExpressXScanner {
     const cacheDir = path.dirname(cachePath);
 
     if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
+      fs.mkdirSync(cacheDir, {
+        recursive: true,
+      });
     }
 
     fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
@@ -149,7 +164,8 @@ export class ExpressXScanner {
       if (isDevMode) {
         decoratorPattern = new RegExp(`@(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm');
       } else {
-        decoratorPattern = new RegExp(`(@)?(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm'); // Compliled TS code doesn't has @ in decorator
+        // Compliled TS code doesn't has @ in decorator
+        decoratorPattern = new RegExp(`(@)?(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm');
       }
 
       return decoratorPattern.test(content);
@@ -165,14 +181,18 @@ export class ExpressXScanner {
     const startTime = Date.now();
     const config = this.getConfig();
     const extension = isDevMode ? 'ts' : 'js';
-    const rootDir = isDevMode
-      ? path.join(process.cwd(), config.sourceDir)
-      : path.join(process.cwd(), config.outDir);
+    const rootDir = isDevMode ? path.join(process.cwd(), config.sourceDir) : path.join(process.cwd(), config.outDir);
 
     if (!fs.existsSync(rootDir)) {
+      const directoryType = isDevMode ? 'source' : 'build';
+      const configKey = isDevMode ? 'sourceDir' : 'outDir';
+      const nextStep = isDevMode
+        ? `Verify "expressx.${configKey}" in package.json.`
+        : `Verify "expressx.${configKey}" in package.json and build the application before starting it.`;
+
       throw new Error(
-        `❌ Directory not found: ${rootDir}\n` +
-        `   ${isDevMode ? 'Source' : 'Build'} directory must exist.`
+        `ExpressX scanner could not find the configured ${directoryType} directory: "${rootDir}".\n` +
+          `Expected to scan ${isDevMode ? 'TypeScript source' : 'compiled JavaScript'} files in this directory. ${nextStep}`,
       );
     }
 
@@ -190,8 +210,8 @@ export class ExpressXScanner {
         '**/dist/**',
         '**/build/**',
         '**/.expressx/**',
-        '**/.git/**'
-      ]
+        '**/.git/**',
+      ],
     });
 
     logger.info(`Total files found: ${allFiles.length.toLocaleString()}`, 'Scanning');
@@ -213,7 +233,7 @@ export class ExpressXScanner {
             decoratorFiles.push({
               path: relativePath,
               mtime: stats.mtimeMs,
-              size: stats.size
+              size: stats.size,
             });
           } catch {
             // File deleted between scan and stat
@@ -223,14 +243,12 @@ export class ExpressXScanner {
 
       const progress = Math.min(((i + CHUNK_SIZE) / allFiles.length) * 100, 100);
       logger.info(
-        `Progress: ${progress.toFixed(1)}% - ` +
-        `Found ${decoratorFiles.length} decorator files`,
-        'Scanning'
+        `Progress: ${progress.toFixed(1)}% - ` + `Found: ${decoratorFiles.length} decorator files`,
+        'Scanning',
       );
     }
 
-    logger.info(`Scan complete. Found ${decoratorFiles.length} decorator files`, 'Scanning');
-
+    logger.info(`Scan complete. Found: ${decoratorFiles.length} decorator files`, 'Scanning');
 
     const scanTime = Date.now() - startTime;
 
@@ -243,7 +261,7 @@ export class ExpressXScanner {
       decoratorFiles,
       totalScanned: allFiles.length,
       generatedAt: new Date().toISOString(),
-      environment: isDevMode ? 'development' : 'production'
+      environment: isDevMode ? 'development' : 'production',
     };
   }
 
@@ -259,13 +277,12 @@ export class ExpressXScanner {
 
       // Skip duplicates (prevent circular imports)
       if (importedPaths.has(absolutePath)) {
-        logger.warn(`Skipping duplicate import: ${absolutePath}`, 'Importing file');
+        logger.warn(`Skipping duplicate.  import: ${absolutePath}`, 'Importing file');
         continue;
       }
 
       try {
-        logger.info(`├─ ${absolutePath}`, 'Importing file');
-
+        logger.info(`├─── ${absolutePath}`, 'Importing file');
 
         if (isDevMode) {
           require(absolutePath);
@@ -274,7 +291,6 @@ export class ExpressXScanner {
         }
 
         importedPaths.add(absolutePath);
-
       } catch (err) {
         logger.error(`Failed to import ${cachedFile.path}: ${(err as Error).message}`, 'Importing file');
 
@@ -282,7 +298,7 @@ export class ExpressXScanner {
         if (err instanceof RangeError && err.message.includes('stack')) {
           throw new Error(
             `Circular dependency detected in: ${absolutePath}\n` +
-            'Check your imports for circular references between controllers/services.'
+              'Check your imports for circular references between controllers/services.',
           );
         }
 
@@ -294,9 +310,8 @@ export class ExpressXScanner {
     logger.info(`All files imported in ${importTime}ms\n`, 'Importing files');
   }
 
-
   static async prefurmScanning() {
-    const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
+    const isDevMode = ExpressXScanner.isTypeScriptRuntime();
     const env = isDevMode ? 'Development' : 'Production';
 
     logger.info(`Running scan in ${env} mode`, 'Scanning');
@@ -314,60 +329,62 @@ export class ExpressXScanner {
       await ExpressXScanner.importFromCache(cache, isDevMode);
     } else {
       // FALLBACK LOGIC
-      // if (isDevMode) {
-      // Development: Allow fallback scan
-      logger.warn('Cache not found - performing scan...', 'Scanning');
+      if (isDevMode) {
+        // Development: Allow fallback scan
+        logger.warn('Cache not found - performing full scan ......', 'Scanning');
 
-      const newCache = await ExpressXScanner.fullScan(isDevMode);
-      if (!newCache) {
+        const newCache = await ExpressXScanner.fullScan(isDevMode);
+        if (!newCache) {
+          const config = ExpressXScanner.getConfig();
+          const error = new Error(
+            'Unable to perform scan\n\n' +
+              'The .expressx/cache.json file is required for deployment.\n\n' +
+              '═════════════════════════════════════════════════════════════════════\n' +
+              'SOLUTION:\n' +
+              '═════════════════════════════════════════════════════════════════════\n\n' +
+              '1. Update package.json scripts:\n' +
+              '   {\n' +
+              '     "scripts": {\n' +
+              '       "build": "expressx build && tsc"\n' +
+              '     }\n' +
+              '   }\n\n' +
+              '2. Run build command:\n' +
+              '   npm run build\n\n' +
+              `3. Verify cache exists: \`${config.outDir}/.expressx/cache.json\`\n\n` +
+              '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
+              '5. If you are in a development environment, set NODE_ENV=development or use the CLI to run the application\n' +
+              '═══════════════════════════════════════════════════════════════════\n',
+          );
+          logger.error(error.message, '.expressx/cache.json');
+          throw error;
+        }
+        ExpressXScanner.saveCache(newCache, isDevMode);
+        await ExpressXScanner.importFromCache(newCache, isDevMode);
+      } else {
+        // Production: STRICT - must have cache
         const config = ExpressXScanner.getConfig();
         const error = new Error(
-          'PRODUCTION CACHE NOT FOUND!\n\n' +
-          'The production cache is required for deployment.\n\n' +
-          '═══════════════════════════════════════════════════\n' +
-          'SOLUTION:\n' +
-          '═══════════════════════════════════════════════════\n\n' +
-          '1. Update package.json scripts:\n' +
-          '   {\n' +
-          '     "scripts": {\n' +
-          '       "build": "expressx build && tsc"\n' +
-          '     }\n' +
-          '   }\n\n' +
-          '2. Run build command:\n' +
-          '   npm run build\n\n' +
-          '3. Verify cache exists:\n' +
-          `   ${config.outDir}/.expressx/cache.json\n\n` +
-          '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
-          '═══════════════════════════════════════════════════\n'
+          '\nPRODUCTION CACHE NOT FOUND!\n\n' +
+            'The production .expressx/cache.json file is required for deployment.\n\n' +
+            '═══════════════════════════════════════════════════════════════════\n' +
+            'SOLUTION:\n' +
+            '═══════════════════════════════════════════════════════════════════\n\n' +
+            '1. Update package.json scripts:\n' +
+            '   {\n' +
+            '     "scripts": {\n' +
+            '       "build": "expressx build && tsc"\n' +
+            '     }\n' +
+            '   }\n\n' +
+            '2. Run build command:\n' +
+            '   npm run build\n\n' +
+            `3. Verify cache exists: \`${config.outDir}/.expressx/cache.json\`\n\n` +
+            '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
+            '5. If you are in a development environment, set NODE_ENV=development or use the CLI to run the application\n' +
+            '═══════════════════════════════════════════════════════════════════\n',
         );
         logger.error(error.message, '.expressx/cache.json');
         throw error;
       }
-      ExpressXScanner.saveCache(newCache, isDevMode);
-      await ExpressXScanner.importFromCache(newCache, isDevMode);
-      // } else {
-      // Production: STRICT - must have cache
-      //   const config = ExpressXScanner.getConfig();
-      //   throw new Error(
-      //     '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
-      //     'The production cache is required for deployment.\n\n' +
-      //     '═══════════════════════════════════════════════════\n' +
-      //     'SOLUTION:\n' +
-      //     '═══════════════════════════════════════════════════\n\n' +
-      //     '1. Update package.json scripts:\n' +
-      //     '   {\n' +
-      //     '     "scripts": {\n' +
-      //     '       "build": "expressx build && tsc"\n' +
-      //     '     }\n' +
-      //     '   }\n\n' +
-      //     '2. Run build command:\n' +
-      //     '   npm run build\n\n' +
-      //     '3. Verify cache exists:\n' +
-      //     `   ${config.outDir}/.expressx/cache.json\n\n` +
-      //     '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
-      //     '═══════════════════════════════════════════════════\n'
-      //   );
-      // }
     }
   }
 }

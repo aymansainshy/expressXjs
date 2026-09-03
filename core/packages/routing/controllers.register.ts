@@ -1,5 +1,4 @@
-
-import { logger } from "../logger/logger";
+import { logger } from '../logger/logger';
 
 export class ControllerRegistry {
   public static readonly controllers: any[] = [];

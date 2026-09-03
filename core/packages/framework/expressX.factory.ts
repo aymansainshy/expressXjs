@@ -1,23 +1,21 @@
-
-
-import { Kernel } from "../kernel";
-import { APP_TOKEN, Options } from "../common";
-import { MissingApplicationDecoratorError, RouteNotFoundError } from "../errors/framework-errors";
+import { Kernel } from '../kernel';
+import { APP_TOKEN, Options } from '../common';
+import { MissingApplicationDecoratorError, RouteNotFoundError } from '../errors/framework-errors';
 import { ExpressX } from './expressX';
 import { AppRouter } from '../routing';
 import { ExpressXApp, NextFn, Request, Response } from '../framework/types';
-import { ExpressXContainer } from "../dicontainer";
-import { logger } from "../logger/logger";
-import { OnInitExpressXApp } from "./onIniteSetup";
-import { lockExpressXApp } from "./utils";
-import { ExceptionHandler } from "../errors";
-import { GlobalExceptionResponseHandler } from "../http/global.exception.response.handler";
-import { GLOBAL_EXCEPTION_HANDLER } from "../common/constants";
+import { ExpressXContainer } from '../dicontainer';
+import { logger } from '../logger/logger';
+import { OnInitExpressXApp } from './onIniteSetup';
+import { lockExpressXApp } from './utils';
+import { ExceptionHandler } from '../errors';
+import { GlobalExceptionResponseHandler } from '../http/global.exception.response.handler';
+import { GLOBAL_EXCEPTION_HANDLER } from '../common/constants';
 
 export abstract class ExpressXFactory {
   /**
-  * Framework-only app creation & wiring
-  */
+   * Framework-only app creation & wiring
+   */
   static async createApp<T extends ExpressX>(options?: Options): Promise<ExpressXApp> {
     const bootTime = Date.now();
     logger.info('Bootstrapping ExpressX application...', 'Bootstrap');
@@ -40,7 +38,7 @@ export abstract class ExpressXFactory {
 
     // 4. Double Check Instance Type (Runtime Safety)
     if (!(expressXapplicaion instanceof ExpressX)) {
-      const error = new Error("Resolved application does not inherit from ExpressX base class.");
+      const error = new Error('Resolved application does not inherit from ExpressX base class.');
       logger.error(error.message, 'Bootstrap', error);
       throw error;
     }
@@ -71,7 +69,10 @@ export abstract class ExpressXFactory {
       : null;
 
     if (globalErrorHandler) {
-      logger.debug(`Global exception handler "${globalErrorHandler.constructor?.name}" registered as bootstrap fallback`, 'Bootstrap');
+      logger.debug(
+        `Global exception handler "${globalErrorHandler.constructor?.name}" registered as bootstrap fallback`,
+        'Bootstrap',
+      );
     } else {
       logger.warn('No @UseGlobalExceptionHandler registered - unhandled errors will return a generic 500', 'Bootstrap');
     }
@@ -82,13 +83,17 @@ export abstract class ExpressXFactory {
       logger.debug(`Fallback error handler reached for [${req.method}] ${req.path}`, 'ErrorHandler');
 
       if (!globalErrorHandler) {
-        logger.error(err?.message ?? "Unhandled error", 'ErrorHandler', err);
-        res.status(500).json({ message: "Internal Server Error" });
+        logger.error(err?.message ?? 'Unhandled error', 'ErrorHandler', err);
+        res.status(500).json({
+          message: 'Internal Server Error',
+        });
         return;
       }
       GlobalExceptionResponseHandler.handleErrorResponse(globalErrorHandler, err, res).catch((error) => {
-        logger.error("Error in global error handler", 'ErrorHandler', error);
-        res.status(500).json({ message: "Internal Server Error" });
+        logger.error('Error in global error handler', 'ErrorHandler', error);
+        res.status(500).json({
+          message: 'Internal Server Error',
+        });
       });
     });
 
@@ -104,4 +109,3 @@ export abstract class ExpressXFactory {
     return xApp;
   }
 }
-

@@ -42,8 +42,18 @@ export class Generator {
     if (!pkg.expressx?.sourceDir) {
       throw new Error(
         'Missing "expressx.sourceDir" in package.json.\n\n' +
-        'Add this configuration:\n' +
-        JSON.stringify({ expressx: { sourceDir: 'src', outDir: 'dist', main: 'src/index.ts' } }, null, 2),
+          'Add this configuration:\n' +
+          JSON.stringify(
+            {
+              expressx: {
+                sourceDir: 'src',
+                outDir: 'dist',
+                main: 'src/index.ts',
+              },
+            },
+            null,
+            2,
+          ),
       );
     }
 
@@ -56,9 +66,7 @@ export class Generator {
   public generate(typeInput: string, name: string, customPath?: string, options: GenerateOptions = {}): void {
     const type = typeAliases[typeInput.toLowerCase()];
     if (!type) {
-      throw new Error(
-        `Unknown type: ${typeInput}. Available: ${[...componentTypes, 'resource'].join(', ')}`,
-      );
+      throw new Error(`Unknown type: ${typeInput}. Available: ${[...componentTypes, 'resource'].join(', ')}`);
     }
 
     if (!name.trim()) {
@@ -66,15 +74,20 @@ export class Generator {
     }
 
     const targetPath = options.path || customPath;
-    const files = type === 'resource'
-      ? this.createResourceFiles(name, targetPath)
-      : [this.createComponentFile(type, name, targetPath)];
+    const files =
+      type === 'resource'
+        ? this.createResourceFiles(name, targetPath)
+        : [this.createComponentFile(type, name, targetPath)];
 
     this.writeFiles(type, name, files, options);
   }
 
   public generateBatch(
-    items: Array<{ type: string; name: string; path?: string }>,
+    items: Array<{
+      type: string;
+      name: string;
+      path?: string;
+    }>,
     options: GenerateOptions = {},
   ): void {
     logger.info(`Generating ${items.length} component(s)...`, 'Generator');
@@ -137,14 +150,14 @@ export class Generator {
 
     const existingFiles = files.filter((file) => fs.existsSync(file.path));
     if (existingFiles.length > 0 && !options.force) {
-      const list = existingFiles
-        .map((file) => `  - ${path.relative(process.cwd(), file.path)}`)
-        .join('\n');
+      const list = existingFiles.map((file) => `  - ${path.relative(process.cwd(), file.path)}`).join('\n');
       throw new Error(`Refusing to overwrite existing files:\n${list}\nUse --force to overwrite them.`);
     }
 
     for (const file of files) {
-      fs.mkdirSync(path.dirname(file.path), { recursive: true });
+      fs.mkdirSync(path.dirname(file.path), {
+        recursive: true,
+      });
       fs.writeFileSync(file.path, file.content, 'utf-8');
       logger.success(`Created ${path.relative(process.cwd(), file.path)}`, 'Generator');
     }

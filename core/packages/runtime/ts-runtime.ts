@@ -4,8 +4,8 @@
  * This includes registering ts-node and tsconfig-paths to enable
  * on-the-fly TypeScript compilation and path alias resolution based on
  * the tsconfig.json file .
- * 
- * @license MIT 
+ *
+ * @license MIT
  * @author Ayman Abdulrahman.
  */
 import 'reflect-metadata';

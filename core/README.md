@@ -2,6 +2,23 @@
 
 ExpressX Core is a lightweight, object-oriented framework built on Express. It adds decorator-based routing, dependency injection, lifecycle hooks, request pipelines, automatic source scanning, and structured HTTP responses while keeping the underlying Express application available.
 
+Its auto-configuration model is inspired by Spring Boot: describe the role of a class with a decorator and let ExpressX discover, register, and connect it when the application starts. ExpressX keeps the flexibility and runtime behavior of Express; it is not a port of Spring Boot and does not attempt to reproduce the Spring API.
+
+## Auto-configuration, inspired by Spring Boot
+
+ExpressX favors convention over manual registration. Instead of maintaining one central file that imports every controller and global component, you declare the application structure where it belongs:
+
+| Declaration                    | What ExpressX configures automatically                               |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `@Application()`               | The application lifecycle class used during bootstrap                |
+| `@Controller()`                | Controller instances and their decorated HTTP routes                 |
+| `@UseGlobalInterceptor()`      | An interceptor that wraps every registered route                     |
+| `@UseGlobalExceptionHandler()` | The application-wide exception handler                               |
+| Injection decorators           | Constructor dependencies through the ExpressX dependency container   |
+| Route pipeline decorators      | Guards, middleware, interceptors, and parameter resolution per route |
+
+During bootstrap, ExpressX reads the project configuration, imports the discovered modules, allows their decorators to register metadata, resolves dependencies, builds the request pipeline, and runs the application lifecycle hooks. The result is a ready-to-use Express application without a hand-written component registry.
+
 ## Install
 
 The fastest way to start is with the ExpressX CLI:
@@ -39,6 +56,14 @@ ExpressX scans the source directory for applications, controllers, global interc
 }
 ```
 
+The `expressx` fields tell the CLI and Core where each stage of the application lives:
+
+| Field       | Purpose                                                          |
+| ----------- | ---------------------------------------------------------------- |
+| `sourceDir` | TypeScript source directory scanned during development and build |
+| `outDir`    | Compiled JavaScript directory used in production                 |
+| `main`      | Application entry point started by `expressx dev`                |
+
 Enable decorators in `tsconfig.json`:
 
 ```json
@@ -59,17 +84,87 @@ Enable decorators in `tsconfig.json`:
 }
 ```
 
+## `.expressx/cache.json`: the discovery manifest
+
+`.expressx/cache.json` is the core of ExpressX's auto-configuration design. Despite its name, it is not merely a disposable performance cache: it is a generated discovery manifest that tells ExpressX which modules contain framework-level decorators and must be imported during startup.
+
+This manifest is the bridge between declarative classes and a running application:
+
+```text
+Decorated TypeScript files
+          |
+          v
+   ExpressX scanner
+          |
+          v
+<sourceDir>/.expressx/cache.json
+          |
+          | expressx build maps .ts paths to compiled .js paths
+          v
+<outDir>/.expressx/cache.json
+          |
+          v
+ExpressX imports modules -> decorators register metadata -> application is assembled
+```
+
+Without the manifest, an application would need either an explicit import and registration list or a recursive filesystem scan on every production startup. ExpressX generates that list ahead of time, then imports only the files needed to activate application, controller, global interceptor, and global exception-handler decorators.
+
+A development manifest has this shape:
+
+```json
+{
+  "version": "1.0.0",
+  "decoratorFiles": [
+    {
+      "path": "src/application.ts",
+      "mtime": 1788220800000,
+      "size": 842
+    },
+    {
+      "path": "src/users/user.controller.ts",
+      "mtime": 1788220800000,
+      "size": 1240
+    }
+  ],
+  "totalScanned": 18,
+  "generatedAt": "2026-09-01T00:00:00.000Z",
+  "environment": "development"
+}
+```
+
+The fields have specific roles:
+
+| Field            | Meaning                                                                     |
+| ---------------- | --------------------------------------------------------------------------- |
+| `version`        | Cache schema version used to reject incompatible manifests                  |
+| `decoratorFiles` | Project-relative module paths plus file modification time and size metadata |
+| `totalScanned`   | Number of source files considered when the manifest was generated           |
+| `generatedAt`    | Time at which the scan completed                                            |
+| `environment`    | Whether paths target development TypeScript or production JavaScript        |
+
+ExpressX maintains two forms of the manifest:
+
+| Runtime     | Location                           | Behavior                                                                                                                                                             |
+| ----------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development | `<sourceDir>/.expressx/cache.json` | Contains `.ts` paths. With the configuration above, this is `src/.expressx/cache.json`. `expressx dev` validates and updates it as decorated source files change.    |
+| Production  | `<outDir>/.expressx/cache.json`    | Contains compiled `.js` paths. With the configuration above, this is `dist/.expressx/cache.json`. `expressx build` generates it, and production startup requires it. |
+
+When Core runs in TypeScript mode, a missing, unreadable, or incompatible development manifest triggers a source scan and a new manifest is written. TypeScript mode is selected when `EXPRESSX_RUNTIME=ts` or `NODE_ENV=development`; the CLI sets the appropriate defaults for `expressx dev`. Production startup is intentionally strict and does not scan source files as a fallback.
+
+Treat both files as generated artifacts:
+
+- Do not edit `cache.json` by hand.
+- Run `expressx dev` while developing so additions, moves, and deletions are reflected automatically.
+- Run `npm run build` after changing decorated files.
+- Deploy `dist/.expressx/cache.json` together with the compiled JavaScript in `dist`.
+- Do not copy the development manifest into `dist`; its paths point to TypeScript source files.
+
 ## Create an application
 
 Define the application lifecycle in `src/application.ts`. Register ordinary Express middleware during `onInit`:
 
 ```ts
-import {
-  Application,
-  ExpressX,
-  ExpressXApp,
-  OnInitExpressXApp,
-} from '@expressxjs/core';
+import { Application, ExpressX, ExpressXApp, OnInitExpressXApp } from '@expressxjs/core';
 import express from 'express';
 
 @Application()
@@ -116,15 +211,7 @@ bootstrap().catch((error: unknown) => {
 Controllers combine a base path with method-level route decorators. Use `@Body()` and `@Ctx()` to access request data and `HttpResponse` to control the status and response body:
 
 ```ts
-import {
-  Body,
-  Controller,
-  Ctx,
-  GET,
-  HttpContext,
-  HttpResponse,
-  POST,
-} from '@expressxjs/core';
+import { Body, Controller, Ctx, GET, HttpContext, HttpResponse, POST } from '@expressxjs/core';
 import { randomUUID } from 'node:crypto';
 
 interface CreateUserDto {
@@ -134,17 +221,35 @@ interface CreateUserDto {
 @Controller('/users')
 export class UserController {
   @GET('/')
-  public findAll(): HttpResponse<Array<{ id: string; name: string }>> {
-    return HttpResponse.ok([{ id: '1', name: 'Ada' }]);
+  public findAll(): HttpResponse<
+    Array<{
+      id: string;
+      name: string;
+    }>
+  > {
+    return HttpResponse.ok([
+      {
+        id: '1',
+        name: 'Ada',
+      },
+    ]);
   }
 
   @POST('/')
   public create(
-    @Body() body: CreateUserDto,
-    @Ctx() ctx: HttpContext,
-  ): HttpResponse<{ id: string; name: string }> {
+    @Body()
+    body: CreateUserDto,
+    @Ctx()
+    ctx: HttpContext,
+  ): HttpResponse<{
+    id: string;
+    name: string;
+  }> {
     console.log('User agent:', ctx.req.headers['user-agent']);
-    return HttpResponse.created({ id: randomUUID(), name: body.name });
+    return HttpResponse.created({
+      id: randomUUID(),
+      name: body.name,
+    });
   }
 }
 ```
@@ -156,13 +261,7 @@ Available route decorators are `@GET()`, `@POST()`, `@PUT()`, `@PATCH()`, and `@
 Mark services as injectable and request them through constructor injection:
 
 ```ts
-import {
-  Controller,
-  GET,
-  HttpResponse,
-  Inject,
-  Injectable,
-} from '@expressxjs/core';
+import { Controller, GET, HttpResponse, Inject, Injectable } from '@expressxjs/core';
 
 @Injectable()
 export class UserService {
@@ -173,7 +272,10 @@ export class UserService {
 
 @Controller('/users')
 export class UserController {
-  public constructor(@Inject(UserService) private readonly users: UserService) {}
+  public constructor(
+    @Inject(UserService)
+    private readonly users: UserService,
+  ) {}
 
   @GET('/')
   public findAll(): HttpResponse<string[]> {
@@ -231,24 +333,49 @@ export class HealthController {
   @UseGuards(ApiKeyGuard)
   @UseMiddlewares(RequestLogger)
   @UseInterceptors(TimingInterceptor)
-  public check(): HttpResponse<{ status: string }> {
-    return HttpResponse.ok({ status: 'ok' });
+  public check(): HttpResponse<{
+    status: string;
+  }> {
+    return HttpResponse.ok({
+      status: 'ok',
+    });
   }
 }
 ```
 
 Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`.
 
+## Global interceptors
+
+Use `@UseGlobalInterceptor()` when an interceptor should run for every route. For example, this interceptor wraps successful `HttpResponse` values in a consistent response envelope:
+
+```ts
+import { ExpressXInterceptor, Handler, HttpContext, HttpResponse, UseGlobalInterceptor } from '@expressxjs/core';
+
+@UseGlobalInterceptor()
+export class ResponseEnvelopeInterceptor extends ExpressXInterceptor {
+  public async intercept(ctx: HttpContext, callHandler: Handler): Promise<unknown> {
+    const result = await callHandler.handle();
+    if (!(result instanceof HttpResponse)) return result;
+
+    return new HttpResponse(result.code, {
+      success: true,
+      data: result.data,
+      path: ctx.req.originalUrl,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+```
+
+Because this file contains `@UseGlobalInterceptor()`, the discovery manifest includes it and ExpressX registers it automatically. Global interceptors run in addition to route-level interceptors declared with `@UseInterceptors()`.
+
 ## Global exception handling
 
 Create one global exception handler to translate thrown values into consistent HTTP responses:
 
 ```ts
-import {
-  ExceptionHandler,
-  HttpErrorResponse,
-  UseGlobalExceptionHandler,
-} from '@expressxjs/core';
+import { ExceptionHandler, HttpErrorResponse, UseGlobalExceptionHandler } from '@expressxjs/core';
 
 @UseGlobalExceptionHandler()
 export class AppExceptionHandler extends ExceptionHandler {
@@ -256,7 +383,10 @@ export class AppExceptionHandler extends ExceptionHandler {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     const statusCode = message.startsWith('Unauthorized') ? 401 : 500;
 
-    return new HttpErrorResponse(statusCode, { message, statusCode });
+    return new HttpErrorResponse(statusCode, {
+      message,
+      statusCode,
+    });
   }
 }
 ```
@@ -275,6 +405,8 @@ npm run build
 # Run the compiled application
 npm start
 ```
+
+With the recommended build script, `expressx build` first creates the development manifest and maps its TypeScript paths into `dist/.expressx/cache.json`; `tsc` then compiles the corresponding JavaScript files. The entire `dist` directory, including its `.expressx` subdirectory, is the production artifact.
 
 ## Public entry points
 

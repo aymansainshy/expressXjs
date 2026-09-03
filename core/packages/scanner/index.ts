@@ -1,1 +1,1 @@
-export { ExpressXScanner } from '../scanner/app.scanner'
+export { ExpressXScanner } from '../scanner/app.scanner';

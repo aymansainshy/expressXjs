@@ -12,7 +12,7 @@ export const componentTypes = [
   'application',
 ] as const;
 
-export type ComponentType = typeof componentTypes[number];
+export type ComponentType = (typeof componentTypes)[number];
 
 export interface TemplateContext {
   baseName: string;
@@ -231,9 +231,7 @@ import { TimingInterceptor } from '../../common/interceptors/timing.interceptor'
   @UseInterceptors(TimingInterceptor)
 `
     : '';
-  const pipelineSymbols = options.withPipeline
-    ? ', UseGuards, UseInterceptors, UseMiddlewares'
-    : '';
+  const pipelineSymbols = options.withPipeline ? ', UseGuards, UseInterceptors, UseMiddlewares' : '';
 
   return {
     [`${fileName}.dto.ts`]: `export interface Create${baseName}Dto {

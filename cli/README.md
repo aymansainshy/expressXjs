@@ -33,11 +33,11 @@ expressx new my-api --template default
 expressx new my-api --skip-install --skip-git
 ```
 
-| Template | Includes |
-| --- | --- |
-| `default` | Application bootstrap and a complete users CRUD resource |
-| `api` | Default template plus global exception handling |
-| `full` | API template plus guard, middleware, route interceptor, and global response interceptor |
+| Template  | Includes                                                                                |
+| --------- | --------------------------------------------------------------------------------------- |
+| `default` | Application bootstrap and a complete users CRUD resource                                |
+| `api`     | Default template plus global exception handling                                         |
+| `full`    | API template plus guard, middleware, route interceptor, and global response interceptor |
 
 The full scaffold uses a feature-first structure:
 

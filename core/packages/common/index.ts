@@ -8,5 +8,5 @@ export {
   INTERCEPTOR_METADATA,
   VALIDATOR_METADATA,
   APP_TOKEN,
-  APP_OPTIONS
+  APP_OPTIONS,
 } from '../common/constants';

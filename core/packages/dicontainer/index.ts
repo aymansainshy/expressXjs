@@ -17,10 +17,5 @@ export {
   createProvider,
   instanceCachingFactory,
   instancePerContainerCachingFactory,
-  predicateAwareClassFactory
+  predicateAwareClassFactory,
 } from '../decorators/di';
-
-
-
-
-

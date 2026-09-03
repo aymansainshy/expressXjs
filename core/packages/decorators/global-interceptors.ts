@@ -1,6 +1,6 @@
-import { ExpressXInterceptor } from "../base/interceptors/interceptors";
-import { logger } from "../logger/logger";
-import { ExpressXContainer, Singleton } from "./di";
+import { ExpressXInterceptor } from '../base/interceptors/interceptors';
+import { logger } from '../logger/logger';
+import { ExpressXContainer, Singleton } from './di';
 
 export function UseGlobalInterceptor(): ClassDecorator {
   return (target: any) => {
@@ -10,7 +10,7 @@ export function UseGlobalInterceptor(): ClassDecorator {
     if (!(target.prototype instanceof ExpressXInterceptor)) {
       const error = new Error(
         `@UseGlobalInterceptor decorator can only be applied to classes extending ExpressXInterceptor. ` +
-        `Class "${target.name}" does not extend ExpressXInterceptor.`
+          `Class "${target.name}" does not extend ExpressXInterceptor.`,
       );
       logger.error(error.message, 'Decorator', error);
       throw error;
@@ -19,7 +19,6 @@ export function UseGlobalInterceptor(): ClassDecorator {
     GlobalInterceptorRegistry.register(target);
   };
 }
-
 
 export class GlobalInterceptorRegistry {
   private static readonly classes: any[] = [];

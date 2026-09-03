@@ -1,11 +1,9 @@
-import { Request } from "../../framework";
-import { logger } from "../../logger/logger";
-
+import { Request } from '../../framework';
+import { logger } from '../../logger/logger';
 
 export abstract class Guard {
   abstract canActivate(req: Request): Promise<boolean> | boolean;
 }
-
 
 export async function runGuard(guard: Guard, req: Request): Promise<boolean> {
   try {

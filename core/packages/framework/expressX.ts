@@ -1,7 +1,5 @@
-import { OnInitExpressXApp } from "./onIniteSetup";
-import { ExpressXApp } from "./types";
-
-
+import { OnInitExpressXApp } from './onIniteSetup';
+import { ExpressXApp } from './types';
 
 export abstract class ExpressX {
   /** Lifecycle Hooks */
@@ -9,9 +7,3 @@ export abstract class ExpressX {
   public abstract onInit(app: OnInitExpressXApp): Promise<void>;
   public abstract postInit(app: ExpressXApp): void;
 }
-
-
-
-
-
-
