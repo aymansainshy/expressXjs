@@ -1,5 +1,3 @@
-
-
 export function toPascalCase(str: string): string {
   return str
     .trim()

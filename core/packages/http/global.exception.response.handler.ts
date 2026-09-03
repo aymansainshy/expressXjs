@@ -1,16 +1,10 @@
-import { ExceptionHandler } from "../base/exceptionHandler/exception-handler";
-import { HttpContext, NextFn, Response } from "../framework";
-import { logger } from "../logger/logger";
-import { HttpErrorResponse } from "./http.error.response";
+import { ExceptionHandler } from '../base/exceptionHandler/exception-handler';
+import { HttpContext, NextFn, Response } from '../framework';
+import { logger } from '../logger/logger';
+import { HttpErrorResponse } from './http.error.response';
 
 export class GlobalExceptionResponseHandler {
-  static async handleErrorResponse(
-    handler: ExceptionHandler,
-    error: any,
-    res: Response,
-    statusCode?: number,
-  ) {
-
+  static async handleErrorResponse(handler: ExceptionHandler, error: any, res: Response, statusCode?: number) {
     try {
       logger.debug(`Delegating error to "${handler.constructor?.name}"`, 'ExceptionHandler');
       const result: HttpErrorResponse | any = await handler.catch(error);
@@ -27,7 +21,10 @@ export class GlobalExceptionResponseHandler {
       res.status(status).json(errorData);
     } catch (err) {
       logger.error('Global exception handler threw while handling an error', 'ExceptionHandler', err as Error);
-      res.status(500).json({ error: 'An unexpected error occurred', details: err instanceof Error ? err.message : err });
+      res.status(500).json({
+        error: 'An unexpected error occurred',
+        details: err instanceof Error ? err.message : err,
+      });
     }
   }
 }

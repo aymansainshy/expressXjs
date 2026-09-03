@@ -10,12 +10,15 @@ module.exports = {
 
   // 🔑 allow TS path aliases
   moduleNameMapper: {
-    '^@expressX/core/(.*)$': '<rootDir>/src/$1'
+    '^@expressX/core/(.*)$': '<rootDir>/src/$1',
   },
 
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: 'tsconfig.json'
-    }]
-  }
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: 'tsconfig.json',
+      },
+    ],
+  },
 };

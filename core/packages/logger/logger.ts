@@ -3,10 +3,10 @@ export enum LogLevel {
   INFO = 'INFO',
   SUCCESS = 'SUCCESS',
   WARN = 'WARN',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
-interface LoggerOptions {
+export interface LoggerOptions {
   enableTimestamp?: boolean;
   enableColors?: boolean;
   minLevel?: LogLevel;
@@ -32,7 +32,6 @@ export class ExpressXLogger {
     white: '\x1b[37m',
     gray: '\x1b[90m',
     expressXcolor: '\x1b[38;2;255;90;0m', // Custom ExpressX orange
-
 
     // Bright text colors (more vibrant)
     brightRed: '\x1b[91m',
@@ -71,8 +70,8 @@ export class ExpressXLogger {
   constructor(options: LoggerOptions = {}) {
     this.options = {
       enableTimestamp: options.enableTimestamp ?? true,
-      enableColors: options.enableColors ?? true,
-      minLevel: options.minLevel ?? LogLevel.DEBUG,
+      enableColors: options.enableColors ?? (!process.env.NO_COLOR && Boolean(process.stdout.isTTY)),
+      minLevel: options.minLevel ?? (process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG),
     };
   }
 
@@ -96,15 +95,15 @@ export class ExpressXLogger {
     this.log(LogLevel.ERROR, message, context);
 
     if (error instanceof Error) {
-      console.error(this.colorize(this.colors.dim + this.colors.red, `  ↳ ${error.message}`));
+      console.error(this.colorize(this.colors.dim + this.colors.red, `  Cause: ${error.message}`));
       if (error.stack) {
         const stackLines = error.stack.split('\n').slice(1);
-        stackLines.forEach(line => {
+        stackLines.forEach((line) => {
           console.error(this.colorize(this.colors.red, `    ${line.trim()}`));
         });
       }
     } else if (typeof error === 'string') {
-      console.error(this.colorize(this.colors.dim + this.colors.red, `  ↳ ${error}`));
+      console.error(this.colorize(this.colors.dim + this.colors.red, `  Cause: ${error}`));
     }
   }
 
@@ -117,15 +116,17 @@ export class ExpressXLogger {
 
     // Timestamp
     if (this.options.enableTimestamp) {
-      const timestamp = new Date().toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      }).replace(',', '');
+      const timestamp = new Date()
+        .toLocaleString('en-US', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+        })
+        .replace(',', '');
       parts.push(this.colorize(this.colors.gray, timestamp));
     }
 
@@ -143,12 +144,24 @@ export class ExpressXLogger {
     // Message
     parts.push(this.colorize(this.getMessageColor(level), message));
 
-    console.log(parts.join(' '));
+    const output = parts.join(' ');
+    if (level === LogLevel.ERROR) {
+      console.error(output);
+    } else if (level === LogLevel.WARN) {
+      console.warn(output);
+    } else {
+      console.log(output);
+    }
 
     // Metadata
     if (meta !== undefined) {
-      const metaStr = typeof meta === 'object' ? JSON.stringify(meta, null, 2) : String(meta);
-      console.log(this.colorize(this.colors.dim + this.colors.gray, `  ↳ ${metaStr}`));
+      let metaString: string;
+      try {
+        metaString = typeof meta === 'object' ? JSON.stringify(meta, null, 2) : String(meta);
+      } catch {
+        metaString = String(meta);
+      }
+      console.log(this.colorize(this.colors.dim + this.colors.gray, `  Metadata: ${metaString}`));
     }
   }
 
@@ -156,9 +169,15 @@ export class ExpressXLogger {
     const badges = {
       [LogLevel.DEBUG]: this.colorize(this.colors.reset, ` ${level} `),
       [LogLevel.INFO]: this.colorize(this.colors.bgBrightGreen + this.colors.black + this.colors.bright, ` ${level} `),
-      [LogLevel.SUCCESS]: this.colorize(this.colors.bgGreen + this.colors.brightWhite + this.colors.bright, ` ${level} `),
+      [LogLevel.SUCCESS]: this.colorize(
+        this.colors.bgGreen + this.colors.brightWhite + this.colors.bright,
+        ` ${level} `,
+      ),
       [LogLevel.WARN]: this.colorize(this.colors.bgBrightYellow + this.colors.black + this.colors.bright, ` ${level} `),
-      [LogLevel.ERROR]: this.colorize(this.colors.bgBrightRed + this.colors.brightWhite + this.colors.bright, ` ${level} `),
+      [LogLevel.ERROR]: this.colorize(
+        this.colors.bgBrightRed + this.colors.brightWhite + this.colors.bright,
+        ` ${level} `,
+      ),
     };
 
     return badges[level];
@@ -166,12 +185,18 @@ export class ExpressXLogger {
 
   private getMessageColor(level: LogLevel): string {
     switch (level) {
-      case LogLevel.DEBUG: return this.colors.reset;
-      case LogLevel.INFO: return this.colors.green;
-      case LogLevel.SUCCESS: return this.colors.green;
-      case LogLevel.WARN: return this.colors.yellow;
-      case LogLevel.ERROR: return this.colors.red;
-      default: return this.colors.white;
+      case LogLevel.DEBUG:
+        return this.colors.reset;
+      case LogLevel.INFO:
+        return this.colors.green;
+      case LogLevel.SUCCESS:
+        return this.colors.green;
+      case LogLevel.WARN:
+        return this.colors.yellow;
+      case LogLevel.ERROR:
+        return this.colors.red;
+      default:
+        return this.colors.white;
     }
   }
 
@@ -194,7 +219,5 @@ export class ExpressXLogger {
     this.options.enableColors = true;
   }
 }
-
-
 
 export const logger = new ExpressXLogger();

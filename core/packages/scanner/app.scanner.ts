@@ -1,13 +1,10 @@
-
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { glob } from 'glob';
-import path from 'path';
-import fs from 'fs';
+import ts from 'typescript';
 import { logger } from '../logger/logger';
-import { pathToFileURL } from 'url';
-
-// ============================================
-// CORE SCANNER
-// ============================================
 
 export interface ScanConfig {
   sourceDir: string;
@@ -18,7 +15,7 @@ export interface CachedFileMetadata {
   path: string;
   mtime: number;
   size: number;
-  hash?: string; // MD5 or xxHash of decorator lines only
+  hash?: string;
 }
 
 export interface FileCache {
@@ -29,243 +26,392 @@ export interface FileCache {
   environment: 'development' | 'production';
 }
 
+export const EXPRESSX_CACHE_VERSION = '1.0.0';
+export const EXPRESSX_DECORATORS = [
+  'UseGlobalInterceptor',
+  'UseGlobalExceptionHandler',
+  'Application',
+  'Controller',
+] as const;
+
+interface DecoratorImports {
+  identifiers: Set<string>;
+  namespaces: Set<string>;
+}
+
+const decoratorNames = new Set<string>(EXPRESSX_DECORATORS);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isExpressXModule(moduleName: string): boolean {
+  return moduleName === '@expressxjs/core' || moduleName.startsWith('@expressxjs/core/');
+}
+
+function getRequiredModule(expression: ts.Expression | undefined): string | null {
+  if (
+    !expression ||
+    !ts.isCallExpression(expression) ||
+    !ts.isIdentifier(expression.expression) ||
+    expression.expression.text !== 'require' ||
+    expression.arguments.length !== 1
+  ) {
+    return null;
+  }
+
+  const [moduleName] = expression.arguments;
+  return ts.isStringLiteral(moduleName) ? moduleName.text : null;
+}
+
+function collectDecoratorImports(sourceFile: ts.SourceFile): DecoratorImports {
+  const imports: DecoratorImports = {
+    identifiers: new Set<string>(),
+    namespaces: new Set<string>(),
+  };
+
+  for (const statement of sourceFile.statements) {
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
+      if (!isExpressXModule(statement.moduleSpecifier.text)) continue;
+
+      const bindings = statement.importClause?.namedBindings;
+      if (bindings && ts.isNamespaceImport(bindings)) {
+        imports.namespaces.add(bindings.name.text);
+      } else if (bindings && ts.isNamedImports(bindings)) {
+        for (const element of bindings.elements) {
+          const importedName = element.propertyName?.text ?? element.name.text;
+          if (decoratorNames.has(importedName)) {
+            imports.identifiers.add(element.name.text);
+          }
+        }
+      }
+      continue;
+    }
+
+    if (
+      ts.isImportEqualsDeclaration(statement) &&
+      ts.isExternalModuleReference(statement.moduleReference) &&
+      ts.isStringLiteral(statement.moduleReference.expression) &&
+      isExpressXModule(statement.moduleReference.expression.text)
+    ) {
+      imports.namespaces.add(statement.name.text);
+      continue;
+    }
+
+    if (!ts.isVariableStatement(statement)) continue;
+
+    for (const declaration of statement.declarationList.declarations) {
+      const moduleName = getRequiredModule(declaration.initializer);
+      if (!moduleName || !isExpressXModule(moduleName)) continue;
+
+      if (ts.isIdentifier(declaration.name)) {
+        imports.namespaces.add(declaration.name.text);
+        continue;
+      }
+
+      if (ts.isObjectBindingPattern(declaration.name)) {
+        for (const element of declaration.name.elements) {
+          if (!ts.isIdentifier(element.name)) continue;
+          const importedName = element.propertyName?.getText(sourceFile) ?? element.name.text;
+          if (decoratorNames.has(importedName)) {
+            imports.identifiers.add(element.name.text);
+          }
+        }
+      }
+    }
+  }
+
+  return imports;
+}
+
+function unwrapCallee(expression: ts.Expression): ts.Expression {
+  let current = expression;
+
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    ts.isPartiallyEmittedExpression(current)
+  ) {
+    current = current.expression;
+  }
+
+  if (ts.isBinaryExpression(current) && current.operatorToken.kind === ts.SyntaxKind.CommaToken) {
+    return unwrapCallee(current.right);
+  }
+
+  return current;
+}
+
+function isDecoratorCall(expression: ts.Expression, imports: DecoratorImports, allowCanonicalName: boolean): boolean {
+  const callee = unwrapCallee(ts.isCallExpression(expression) ? expression.expression : expression);
+
+  if (ts.isIdentifier(callee)) {
+    return imports.identifiers.has(callee.text) || (allowCanonicalName && decoratorNames.has(callee.text));
+  }
+
+  if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)) {
+    return imports.namespaces.has(callee.expression.text) && decoratorNames.has(callee.name.text);
+  }
+
+  if (
+    ts.isElementAccessExpression(callee) &&
+    ts.isIdentifier(callee.expression) &&
+    imports.namespaces.has(callee.expression.text) &&
+    callee.argumentExpression &&
+    ts.isStringLiteral(callee.argumentExpression)
+  ) {
+    return decoratorNames.has(callee.argumentExpression.text);
+  }
+
+  return false;
+}
+
 export class ExpressXScanner {
-  constructor() { }
+  private static isTypeScriptRuntime(): boolean {
+    const runtime = process.env.EXPRESSX_RUNTIME?.trim().toLowerCase();
+    const isDevelopment = process.env.NODE_ENV?.trim().toLowerCase() === 'development';
 
-  private static readonly CACHE_VERSION = '1.0.0';
-  private static readonly DECORATORS = [
-    'UseGlobalInterceptor',
-    'UseGlobalExceptionHandler',
-    'Application',
-    'Controller',
-  ];
+    if (runtime && runtime !== 'ts' && runtime !== 'js') {
+      throw new Error('EXPRESSX_RUNTIME must be either "ts" or "js" when it is defined.');
+    }
 
-  /**
-   * Get configuration from package.json
-   */
+    return runtime === 'ts' || isDevelopment;
+  }
+
   static getConfig(): ScanConfig {
     const pkgPath = path.join(process.cwd(), 'package.json');
 
     if (!fs.existsSync(pkgPath)) {
-      throw new Error('❌ package.json not found in current directory.');
+      throw new Error(
+        `ExpressX scanner could not find package.json in "${process.cwd()}". ` +
+          'Run the application from the project root.',
+      );
     }
 
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    let pkg: Record<string, any>;
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as Record<string, any>;
+    } catch (error) {
+      throw new Error(`ExpressX scanner could not parse "${pkgPath}": ${(error as Error).message}`);
+    }
 
-    if (!pkg.expressx?.sourceDir) {
+    if (typeof pkg.expressx?.sourceDir !== 'string' || !pkg.expressx.sourceDir.trim()) {
       throw new Error(
-        '❌ Missing "expressx.sourceDir" in package.json.\n\n' +
-        'Add this configuration:\n' +
-        '{\n' +
-        '  "expressx": {\n' +
-        '    "sourceDir": "src"\n' +
-        '  }\n' +
-        '}'
+        'ExpressX scanner cannot start because package.json does not define the required "expressx.sourceDir" setting.\n\n' +
+          'Add an ExpressX configuration similar to:\n' +
+          '{\n' +
+          '  "expressx": {\n' +
+          '    "sourceDir": "src",\n' +
+          '    "outDir": "dist",\n' +
+          '    "main": "src/index.ts"\n' +
+          '  }\n' +
+          '}',
       );
+    }
+
+    if (pkg.expressx.outDir !== undefined && typeof pkg.expressx.outDir !== 'string') {
+      throw new Error('ExpressX scanner expected "expressx.outDir" in package.json to be a string.');
     }
 
     return {
       sourceDir: pkg.expressx.sourceDir,
-      outDir: pkg.expressx.outDir || 'dist'
+      outDir: pkg.expressx.outDir || 'dist',
     };
   }
 
-  /**
-   * Get cache file path based on environment
-   */
-  private static getCachePath(isDevMode: boolean): string {
+  static getCachePath(isDevMode: boolean, directoryOverride?: string): string {
     const config = this.getConfig();
-    const dir = isDevMode ? config.sourceDir : config.outDir;
-    return path.join(process.cwd(), dir, '.expressx', 'cache.json');
+    const directory = directoryOverride ?? (isDevMode ? config.sourceDir : config.outDir);
+    const resolvedDirectory = this.resolveProjectPath(directory, 'cache directory');
+    return path.join(resolvedDirectory, '.expressx', 'cache.json');
   }
 
-  /**
-   * Load cache from disk
-   */
-  static loadCache(isDevMode: boolean): FileCache | null {
-    const cachePath = this.getCachePath(isDevMode);
+  static loadCache(isDevMode: boolean, directoryOverride?: string): FileCache | null {
+    const cachePath = this.getCachePath(isDevMode, directoryOverride);
 
-    if (!fs.existsSync(cachePath)) {
-      return null;
-    }
+    if (!fs.existsSync(cachePath)) return null;
 
     try {
-      const cache: FileCache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
-
-      // Validate cache version
-      if (cache.version !== this.CACHE_VERSION) {
-        logger.warn(
-          `Cache version mismatch (found ${cache.version}, expected ${this.CACHE_VERSION}) - will regenerate`,
-          '.expressx/cache.json'
-        );
+      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8')) as unknown;
+      const validationError = this.getCacheValidationError(cache, isDevMode);
+      if (validationError) {
+        logger.warn(`Ignoring invalid cache at "${cachePath}": ${validationError}`, '.expressx/cache.json');
         return null;
       }
-
       return cache as FileCache;
-    } catch (err) {
-      logger.warn(`Failed to read cache: ${(err as Error).message}`, '.expressx/cache.json');
+    } catch (error) {
+      logger.warn(`Failed to read cache at "${cachePath}": ${(error as Error).message}`, '.expressx/cache.json');
       return null;
     }
   }
 
-  /**
-   * Save cache to disk
-   */
-  static saveCache(cache: FileCache, isDevMode: boolean): void {
-    const cachePath = this.getCachePath(isDevMode);
-    const cacheDir = path.dirname(cachePath);
-
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
+  static saveCache(cache: FileCache, isDevMode: boolean, directoryOverride?: string): void {
+    const validationError = this.getCacheValidationError(cache, isDevMode);
+    if (validationError) {
+      throw new Error(`ExpressX refused to write an invalid cache: ${validationError}`);
     }
 
-    fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+    const cachePath = this.getCachePath(isDevMode, directoryOverride);
+    const cacheDir = path.dirname(cachePath);
+    const temporaryPath = `${cachePath}.${process.pid}.${randomUUID()}.tmp`;
+
+    fs.mkdirSync(cacheDir, {
+      recursive: true,
+    });
+
+    try {
+      fs.writeFileSync(temporaryPath, `${JSON.stringify(cache, null, 2)}\n`, 'utf-8');
+      fs.renameSync(temporaryPath, cachePath);
+    } catch (error) {
+      fs.rmSync(temporaryPath, {
+        force: true,
+      });
+      throw error;
+    }
   }
 
-  /**
-   * Check if file contains ExpressX decorators (fast string search)
-   */
-  private static hasDecorators(filePath: string, isDevMode: boolean): boolean {
+  static fileContainsDecorators(filePath: string, isTypeScript: boolean): boolean {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
+      if (!EXPRESSX_DECORATORS.some((decorator) => content.includes(decorator))) return false;
 
-      // 1. Quick check for the package import
-      // This matches:
-      // @expressxjs/core
-      // @expressxjs/core/
-      // @expressxjs/core/decorators
-      // @expressxjs/core/any/other/path
-      // const importPattern = /@expressx\/core(\/[a-zA-Z0-9\-_]*)*/;
+      const sourceFile = ts.createSourceFile(
+        filePath,
+        content,
+        ts.ScriptTarget.Latest,
+        false,
+        this.getScriptKind(filePath, isTypeScript),
+      );
+      const imports = collectDecoratorImports(sourceFile);
+      let found = false;
 
-      // if (!importPattern.test(content)) {
-      //   return false;
-      // }
+      const visit = (node: ts.Node): void => {
+        if (found) return;
 
-      // 2. Create a regex to match:
-      // @             - The literal '@' symbol
-      // (Name1|Name2) - Any of your decorator names
-      // (?\s*\(.*?\))? - Optional: parentheses with any content inside
-      let decoratorPattern;
-      if (isDevMode) {
-        decoratorPattern = new RegExp(`@(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm');
-      } else {
-        decoratorPattern = new RegExp(`(@)?(${this.DECORATORS.join('|')})\\b(\\s*\\([\\s\\S]*?\\))?`, 'm'); // Compliled TS code doesn't has @ in decorator
-      }
+        if (isTypeScript && ts.isDecorator(node) && isDecoratorCall(node.expression, imports, true)) {
+          found = true;
+          return;
+        }
 
-      return decoratorPattern.test(content);
+        if (!isTypeScript && ts.isCallExpression(node) && isDecoratorCall(node, imports, false)) {
+          found = true;
+          return;
+        }
+
+        ts.forEachChild(node, visit);
+      };
+
+      visit(sourceFile);
+      return found;
     } catch {
       return false;
     }
   }
 
-  /**
-   * Perform full project scan
-   */
   static async fullScan(isDevMode: boolean): Promise<FileCache> {
     const startTime = Date.now();
     const config = this.getConfig();
-    const extension = isDevMode ? 'ts' : 'js';
-    const rootDir = isDevMode
-      ? path.join(process.cwd(), config.sourceDir)
-      : path.join(process.cwd(), config.outDir);
+    const configuredDirectory = isDevMode ? config.sourceDir : config.outDir;
+    const rootDir = this.resolveProjectPath(configuredDirectory, isDevMode ? 'source directory' : 'build directory');
+    const pattern = isDevMode ? '**/*.{ts,tsx,mts,cts}' : '**/*.{js,jsx,mjs,cjs}';
 
     if (!fs.existsSync(rootDir)) {
+      const directoryType = isDevMode ? 'source' : 'build';
+      const configKey = isDevMode ? 'sourceDir' : 'outDir';
+      const nextStep = isDevMode
+        ? `Verify "expressx.${configKey}" in package.json.`
+        : `Verify "expressx.${configKey}" in package.json and build the application before starting it.`;
+
       throw new Error(
-        `❌ Directory not found: ${rootDir}\n` +
-        `   ${isDevMode ? 'Source' : 'Build'} directory must exist.`
+        `ExpressX scanner could not find the configured ${directoryType} directory: "${rootDir}".\n` +
+          `Expected to scan ${isDevMode ? 'TypeScript source' : 'compiled JavaScript'} files in this directory. ${nextStep}`,
       );
     }
 
-    logger.info(`Start Scanning directory: ${rootDir}`, 'Scanning');
+    logger.info(`Scanning directory: ${rootDir}`, 'Scanning');
 
-    // Get all source files
-    const allFiles = await glob(`**/*.${extension}`, {
+    const allFiles = await glob(pattern, {
       cwd: rootDir,
       absolute: true,
       ignore: [
         '**/node_modules/**',
-        '**/*.spec.ts',
-        '**/*.test.ts',
+        '**/*.spec.*',
+        '**/*.test.*',
         '**/*.d.ts',
+        '**/*.d.mts',
+        '**/*.d.cts',
         '**/dist/**',
         '**/build/**',
         '**/.expressx/**',
-        '**/.git/**'
-      ]
+        '**/.git/**',
+      ],
     });
 
-    logger.info(`Total files found: ${allFiles.length.toLocaleString()}`, 'Scanning');
-    logger.info(`Start Filtering decorator files...`, 'Scanning');
+    logger.info(`Found ${allFiles.length.toLocaleString()} candidate file(s)`, 'Scanning');
 
-    // Filter files containing decorators
     const decoratorFiles: CachedFileMetadata[] = [];
-    const CHUNK_SIZE = 1000;
+    const chunkSize = 1000;
 
-    for (let i = 0; i < allFiles.length; i += CHUNK_SIZE) {
-      const chunk = allFiles.slice(i, i + CHUNK_SIZE);
+    for (let index = 0; index < allFiles.length; index += chunkSize) {
+      const chunk = allFiles.slice(index, index + chunkSize);
 
       for (const file of chunk) {
-        if (this.hasDecorators(file, isDevMode)) {
-          const relativePath = path.relative(process.cwd(), file).replace(/\\/g, '/');
+        if (!this.fileContainsDecorators(file, isDevMode)) continue;
 
-          try {
-            const stats = fs.statSync(file);
-            decoratorFiles.push({
-              path: relativePath,
-              mtime: stats.mtimeMs,
-              size: stats.size
-            });
-          } catch {
-            // File deleted between scan and stat
-          }
+        try {
+          const stats = fs.statSync(file);
+          decoratorFiles.push({
+            path: this.toProjectRelativePath(file),
+            mtime: stats.mtimeMs,
+            size: stats.size,
+          });
+        } catch {
+          // The file was removed between scanning and reading its metadata.
         }
       }
 
-      const progress = Math.min(((i + CHUNK_SIZE) / allFiles.length) * 100, 100);
-      logger.info(
-        `Progress: ${progress.toFixed(1)}% - ` +
-        `Found ${decoratorFiles.length} decorator files`,
-        'Scanning'
-      );
+      if (allFiles.length > 0) {
+        const progress = Math.min(((index + chunkSize) / allFiles.length) * 100, 100);
+        logger.debug(
+          `Scan progress: ${progress.toFixed(1)}%; ${decoratorFiles.length} decorator file(s) found`,
+          'Scanning',
+        );
+      }
     }
 
-    logger.info(`Scan complete. Found ${decoratorFiles.length} decorator files`, 'Scanning');
-
-
     const scanTime = Date.now() - startTime;
-
-    logger.info(`Scan complete in ${scanTime}ms`, 'Scanning');
-    logger.info(`Decorator files: ${decoratorFiles.length}`, 'Scanning');
-    logger.info(`Scan efficiency: ${((decoratorFiles.length / allFiles.length) * 100).toFixed(2)}%`, 'Scanning');
+    const scanEfficiency = allFiles.length === 0 ? 0 : (decoratorFiles.length / allFiles.length) * 100;
+    logger.success(
+      `Scan completed in ${scanTime}ms; found ${decoratorFiles.length} decorator file(s) ` +
+        `across ${allFiles.length} candidate file(s) (${scanEfficiency.toFixed(2)}%)`,
+      'Scanning',
+    );
 
     return {
-      version: this.CACHE_VERSION,
+      version: EXPRESSX_CACHE_VERSION,
       decoratorFiles,
       totalScanned: allFiles.length,
       generatedAt: new Date().toISOString(),
-      environment: isDevMode ? 'development' : 'production'
+      environment: isDevMode ? 'development' : 'production',
     };
   }
 
-  /**
-   * Import decorator files from cache
-   */
   static async importFromCache(cache: FileCache, isDevMode: boolean): Promise<void> {
     const startTime = Date.now();
-    const importedPaths = new Set<string>(); // Prevent circular imports
+    const importedPaths = new Set<string>();
 
     for (const cachedFile of cache.decoratorFiles) {
-      const absolutePath = path.join(process.cwd(), cachedFile.path);
+      const absolutePath = this.resolveProjectPath(cachedFile.path, 'cached decorator file');
 
-      // Skip duplicates (prevent circular imports)
       if (importedPaths.has(absolutePath)) {
         logger.warn(`Skipping duplicate import: ${absolutePath}`, 'Importing file');
         continue;
       }
 
       try {
-        logger.info(`├─ ${absolutePath}`, 'Importing file');
-
+        logger.debug(`Importing ${absolutePath}`, 'Importing file');
 
         if (isDevMode) {
           require(absolutePath);
@@ -274,100 +420,121 @@ export class ExpressXScanner {
         }
 
         importedPaths.add(absolutePath);
+      } catch (error) {
+        logger.error(`Failed to import ${cachedFile.path}: ${(error as Error).message}`, 'Importing file');
 
-      } catch (err) {
-        logger.error(`Failed to import ${cachedFile.path}: ${(err as Error).message}`, 'Importing file');
-
-        // Detect circular dependencies
-        if (err instanceof RangeError && err.message.includes('stack')) {
+        if (error instanceof RangeError && error.message.includes('stack')) {
           throw new Error(
-            `Circular dependency detected in: ${absolutePath}\n` +
-            'Check your imports for circular references between controllers/services.'
+            `Circular dependency detected in "${absolutePath}". ` +
+              'Check imports between controllers, services, and pipeline components.',
           );
         }
 
-        throw err;
-      }
-    }
-
-    const importTime = Date.now() - startTime;
-    logger.info(`All files imported in ${importTime}ms\n`, 'Importing files');
-  }
-
-
-  static async prefurmScanning() {
-    const isDevMode = process.env.EXPRESSX_RUNTIME === 'ts';
-    const env = isDevMode ? 'Development' : 'Production';
-
-    logger.info(`Running scan in ${env} mode`, 'Scanning');
-
-    // Load cache
-    const cache = ExpressXScanner.loadCache(isDevMode);
-    if (cache) {
-      logger.success(`.expressx/cache.json loaded successfully`, 'Startup');
-      logger.debug(`.expressx/cache.json version: ${cache.version}`, '.expressx/cache.json');
-      logger.debug(`Environment: ${cache.environment}`, '.expressx/cache.json');
-      logger.debug(`Total files scanned: ${cache.totalScanned.toLocaleString()}`, '.expressx/cache.json');
-      logger.debug(`Decorator files: ${cache.decoratorFiles.length}`, '.expressx/cache.json');
-      logger.debug(`Generated: ${new Date(cache.generatedAt).toLocaleString()}`, '.expressx/cache.json');
-
-      await ExpressXScanner.importFromCache(cache, isDevMode);
-    } else {
-      // FALLBACK LOGIC
-      // if (isDevMode) {
-      // Development: Allow fallback scan
-      logger.warn('Cache not found - performing scan...', 'Scanning');
-
-      const newCache = await ExpressXScanner.fullScan(isDevMode);
-      if (!newCache) {
-        const config = ExpressXScanner.getConfig();
-        const error = new Error(
-          'PRODUCTION CACHE NOT FOUND!\n\n' +
-          'The production cache is required for deployment.\n\n' +
-          '═══════════════════════════════════════════════════\n' +
-          'SOLUTION:\n' +
-          '═══════════════════════════════════════════════════\n\n' +
-          '1. Update package.json scripts:\n' +
-          '   {\n' +
-          '     "scripts": {\n' +
-          '       "build": "expressx build && tsc"\n' +
-          '     }\n' +
-          '   }\n\n' +
-          '2. Run build command:\n' +
-          '   npm run build\n\n' +
-          '3. Verify cache exists:\n' +
-          `   ${config.outDir}/.expressx/cache.json\n\n` +
-          '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
-          '═══════════════════════════════════════════════════\n'
-        );
-        logger.error(error.message, '.expressx/cache.json');
         throw error;
       }
-      ExpressXScanner.saveCache(newCache, isDevMode);
-      await ExpressXScanner.importFromCache(newCache, isDevMode);
-      // } else {
-      // Production: STRICT - must have cache
-      //   const config = ExpressXScanner.getConfig();
-      //   throw new Error(
-      //     '❌ PRODUCTION CACHE NOT FOUND!\n\n' +
-      //     'The production cache is required for deployment.\n\n' +
-      //     '═══════════════════════════════════════════════════\n' +
-      //     'SOLUTION:\n' +
-      //     '═══════════════════════════════════════════════════\n\n' +
-      //     '1. Update package.json scripts:\n' +
-      //     '   {\n' +
-      //     '     "scripts": {\n' +
-      //     '       "build": "expressx build && tsc"\n' +
-      //     '     }\n' +
-      //     '   }\n\n' +
-      //     '2. Run build command:\n' +
-      //     '   npm run build\n\n' +
-      //     '3. Verify cache exists:\n' +
-      //     `   ${config.outDir}/.expressx/cache.json\n\n` +
-      //     '4. Deploy entire dist/ folder (including .expressx/)\n\n' +
-      //     '═══════════════════════════════════════════════════\n'
-      //   );
-      // }
     }
+
+    logger.info(`Imported ${importedPaths.size} decorator file(s) in ${Date.now() - startTime}ms`, 'Importing file');
+  }
+
+  static async performScanning(): Promise<void> {
+    const isDevMode = this.isTypeScriptRuntime();
+    const environment = isDevMode ? 'development' : 'production';
+
+    logger.info(`Running scanner in ${environment} mode`, 'Scanning');
+
+    const cache = this.loadCache(isDevMode);
+    if (cache) {
+      logger.success(`Loaded ${cache.decoratorFiles.length} decorator file(s) from cache`, '.expressx/cache.json');
+      await this.importFromCache(cache, isDevMode);
+      return;
+    }
+
+    if (isDevMode) {
+      logger.warn('Development cache is unavailable; performing a full source scan', 'Scanning');
+      const newCache = await this.fullScan(true);
+      this.saveCache(newCache, true);
+      await this.importFromCache(newCache, true);
+      return;
+    }
+
+    const cachePath = this.getCachePath(false);
+    throw new Error(
+      `ExpressX production startup requires a valid cache at "${cachePath}". ` +
+        'Run "expressx build" before TypeScript compilation and deploy the complete output directory, including .expressx/cache.json., or if you are running in development mode, set or NODE_ENV=development.',
+    );
+  }
+
+  /** @deprecated Use performScanning() instead. */
+  static async prefurmScanning(): Promise<void> {
+    return this.performScanning();
+  }
+
+  private static getCacheValidationError(cache: unknown, isDevMode: boolean): string | null {
+    if (!isRecord(cache)) return 'the root value must be an object';
+    if (cache.version !== EXPRESSX_CACHE_VERSION) {
+      return `version ${String(cache.version)} is incompatible with ${EXPRESSX_CACHE_VERSION}`;
+    }
+
+    const expectedEnvironment = isDevMode ? 'development' : 'production';
+    if (cache.environment !== expectedEnvironment) {
+      return `environment must be "${expectedEnvironment}"`;
+    }
+    if (!Number.isInteger(cache.totalScanned) || (cache.totalScanned as number) < 0) {
+      return 'totalScanned must be a non-negative integer';
+    }
+    if (typeof cache.generatedAt !== 'string' || !Number.isFinite(Date.parse(cache.generatedAt))) {
+      return 'generatedAt must be a valid ISO date string';
+    }
+    if (!Array.isArray(cache.decoratorFiles)) return 'decoratorFiles must be an array';
+
+    for (const [index, file] of cache.decoratorFiles.entries()) {
+      if (!isRecord(file)) return `decoratorFiles[${index}] must be an object`;
+      if (typeof file.path !== 'string' || !file.path) return `decoratorFiles[${index}].path must be a string`;
+      if (path.isAbsolute(file.path)) return `decoratorFiles[${index}].path must be project-relative`;
+      if (!Number.isFinite(file.mtime) || (file.mtime as number) < 0) {
+        return `decoratorFiles[${index}].mtime must be a non-negative number`;
+      }
+      if (!Number.isFinite(file.size) || (file.size as number) < 0) {
+        return `decoratorFiles[${index}].size must be a non-negative number`;
+      }
+      if (file.hash !== undefined && typeof file.hash !== 'string') {
+        return `decoratorFiles[${index}].hash must be a string when provided`;
+      }
+
+      try {
+        this.resolveProjectPath(file.path, `decoratorFiles[${index}].path`);
+      } catch (error) {
+        return (error as Error).message;
+      }
+    }
+
+    return null;
+  }
+
+  private static resolveProjectPath(projectPath: string, label: string): string {
+    if (typeof projectPath !== 'string' || !projectPath.trim()) {
+      throw new Error(`${label} must be a non-empty path`);
+    }
+
+    const projectRoot = path.resolve(process.cwd());
+    const resolvedPath = path.resolve(projectRoot, projectPath);
+    const relativePath = path.relative(projectRoot, resolvedPath);
+
+    if (relativePath === '..' || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) {
+      throw new Error(`${label} must remain inside the project directory: "${projectPath}"`);
+    }
+
+    return resolvedPath;
+  }
+
+  private static toProjectRelativePath(filePath: string): string {
+    return path.relative(process.cwd(), filePath).split(path.sep).join('/');
+  }
+
+  private static getScriptKind(filePath: string, isTypeScript: boolean): ts.ScriptKind {
+    if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX;
+    if (filePath.endsWith('.jsx')) return ts.ScriptKind.JSX;
+    return isTypeScript ? ts.ScriptKind.TS : ts.ScriptKind.JS;
   }
 }

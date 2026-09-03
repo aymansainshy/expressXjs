@@ -1,28 +1,16 @@
-import "reflect-metadata"
+import 'reflect-metadata';
 
-export { StatusCode } from "./statusCode";
+export { StatusCode } from './statusCode';
 export { Controller } from './controller';
-export { GET, POST, PUT, DELETE, PATCH, RouteDefinition } from './methods';
-export { Ctx, Next, Body, ParamType } from './prams';
+export { GET, POST, PUT, DELETE, PATCH } from './methods';
+export type { RouteDefinition } from './methods';
+export { Body, Ctx, Next, Param, ParamType } from './params';
 export { Application } from './application';
 export { UseMiddlewares } from './middlewares';
 export { UseGuards } from './guards';
 export { UseInterceptors } from './interceptors';
-export { UseValidators } from './validators';
 export { UseGlobalInterceptor } from './global-interceptors';
 export { UseGlobalExceptionHandler } from './global-exceptionHandler';
 
-
-
-// ✅ RELIABLE - Explicit named exports
-export {
-  Singleton,
-  Injectable,
-  Scoped,
-  AutoInjectable,
-  Registry,
-  Inject,
-  InjectAll,
-  InjectWithTransform,
-} from './di';
-
+// Explicit named exports
+export { Singleton, Injectable, Scoped, AutoInjectable, Registry, Inject, InjectAll, InjectWithTransform } from './di';

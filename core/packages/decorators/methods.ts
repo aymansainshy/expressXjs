@@ -1,5 +1,5 @@
-import { ROUTES_METADATA } from "../common";
-import { logger } from "../logger/logger";
+import { ROUTES_METADATA } from '../common';
+import { logger } from '../logger/logger';
 
 export interface RouteDefinition {
   path: string;
@@ -11,7 +11,10 @@ type HttpMethods = 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH';
 
 const Route = (method: HttpMethods, path: string): MethodDecorator => {
   return (target: Object, propertyKey: string | symbol, descriptor: PropertyDescriptor) => {
-    logger.debug(`Applying @${method} decorator to method "${propertyKey as string}" in class "${target.constructor.name}" with path: ${path}`, 'Decorator');
+    logger.debug(
+      `Applying @${method} decorator to method "${propertyKey as string}" in class "${target.constructor.name}" with path: ${path}`,
+      'Decorator',
+    );
 
     if (!Reflect.hasMetadata(ROUTES_METADATA, target.constructor)) {
       Reflect.defineMetadata(ROUTES_METADATA, [], target.constructor);
@@ -28,7 +31,6 @@ const Route = (method: HttpMethods, path: string): MethodDecorator => {
     Reflect.defineMetadata(ROUTES_METADATA, routes, target.constructor);
   };
 };
-
 
 export const POST = (path: string): MethodDecorator => Route('POST', path);
 export const GET = (path: string): MethodDecorator => Route('GET', path);

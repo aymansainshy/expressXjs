@@ -1,10 +1,4 @@
-
-import {
-  Express,
-  Request,
-  Response,
-  NextFunction as NextFn,
-} from 'express';
+import type { Express, Request, Response } from 'express';
 
 export interface ExpressXApp extends Express {
   readonly framework: 'ExpressXjs';
@@ -24,7 +18,4 @@ export interface HttpContext {
   res: Response;
 }
 
-export { Request, Response, NextFn };
-
-
-
+export type { Request, Response, NextFunction as NextFn } from 'express';

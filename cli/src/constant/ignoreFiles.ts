@@ -1,18 +1,11 @@
-
 import type { Stats } from 'node:fs';
 
-const IGNORED_DIRECTORIES = new Set([
-  'node_modules',
-  'dist',
-  'build',
-  '.git',
-  '.expressx'
-]);
+const IGNORED_DIRECTORIES = new Set(['node_modules', 'dist', 'build', '.git', '.expressx']);
 
 export function shouldIgnoreWatchPath(watchPath: string, stats?: Stats): boolean {
   const pathSegments = watchPath.split(/[\\/]/);
 
-  if (pathSegments.some(segment => IGNORED_DIRECTORIES.has(segment))) {
+  if (pathSegments.some((segment) => IGNORED_DIRECTORIES.has(segment))) {
     return true;
   }
 
@@ -20,7 +13,9 @@ export function shouldIgnoreWatchPath(watchPath: string, stats?: Stats): boolean
     return false;
   }
 
-  return !watchPath.endsWith('.ts')
-    || watchPath.endsWith('.spec.ts')
-    || watchPath.endsWith('.test.ts');
+  const isTypeScript = /\.(?:ts|tsx|mts|cts)$/.test(watchPath);
+  const isTestFile = /\.(?:spec|test)\.(?:ts|tsx|mts|cts)$/.test(watchPath);
+  const isDeclaration = /\.d\.(?:ts|mts|cts)$/.test(watchPath);
+
+  return !isTypeScript || isTestFile || isDeclaration;
 }

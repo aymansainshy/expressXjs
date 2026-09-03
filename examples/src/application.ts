@@ -1,15 +1,12 @@
-
 import { Application, ExpressXApp, OnInitExpressXApp } from '@expressxjs/core';
 import { ExpressX, ExpressXFactory } from '@expressxjs/core';
 import { createServer } from 'http';
 import { parseArgs } from 'util';
 
-
 @Application()
 export class MyApplication extends ExpressX {
-
   public async preInit(): Promise<void> {
-    console.log("Pre-initialization logic here.");
+    console.log('Pre-initialization logic here.');
     return Promise.resolve();
   }
 
@@ -21,10 +18,9 @@ export class MyApplication extends ExpressX {
   }
 
   public postInit(app: any): void {
-    console.log("Post-initialization logic here.");
-    console.log("Setting up routes...");
+    console.log('Post-initialization logic here.');
+    console.log('Setting up routes...');
   }
-
 
   public async bootstrap(): Promise<void> {
     const { values } = parseArgs({
@@ -48,5 +44,3 @@ export class MyApplication extends ExpressX {
     });
   }
 }
-
-

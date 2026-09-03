@@ -4,8 +4,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     /* Modules */
-    "module": "NodeNext", // ✅ Works with CommonJS output
-    "moduleResolution": "nodenext", // ✅ Modern Node.js resolution
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
     "rootDir": "src",
     "resolveJsonModule": true,
     /* Emit */
@@ -22,12 +22,6 @@
     "noImplicitAny": true,
     "skipLibCheck": true
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

@@ -27,9 +27,7 @@ const supportedTemplates: ProjectTemplate[] = ['default', 'api', 'full'];
 export function createProject(projectName: string, options: CreateProjectOptions = {}): void {
   const template = options.template || 'full';
   if (!supportedTemplates.includes(template)) {
-    throw new Error(
-      `Unknown template "${template}". Choose one of: ${supportedTemplates.join(', ')}.`,
-    );
+    throw new Error(`Unknown template "${template}". Choose one of: ${supportedTemplates.join(', ')}.`);
   }
 
   const projectPath = resolveProjectPath(projectName);
@@ -41,15 +39,16 @@ export function createProject(projectName: string, options: CreateProjectOptions
   const packageName = toKebabCase(directoryName).toLowerCase();
   const files = createProjectFiles(packageName, template);
 
-  logger.info(
-    `Creating ExpressX project "${packageName}" with the ${template} template`,
-    'Project',
-  );
+  logger.info(`Creating ExpressX project "${packageName}" with the ${template} template`, 'Project');
 
-  fs.mkdirSync(projectPath, { recursive: true });
+  fs.mkdirSync(projectPath, {
+    recursive: true,
+  });
   for (const [relativePath, content] of Object.entries(files)) {
     const filePath = path.join(projectPath, relativePath);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.mkdirSync(path.dirname(filePath), {
+      recursive: true,
+    });
     fs.writeFileSync(filePath, content, 'utf-8');
     logger.debug(`Created ${relativePath}`, 'Project');
   }
@@ -144,7 +143,6 @@ src/.expressx/
 .DS_Store
 `,
     '.env.example': `PORT=3000
-API_KEY=
 `,
     'src/application.ts': createApplicationTemplate(),
     'src/index.ts': createBootstrapTemplate(projectName, 'MyApplication'),
@@ -157,7 +155,6 @@ API_KEY=
   }
 
   if (template === 'full') {
-    files['src/common/guards/api-key.guard.ts'] = createGuardTemplate();
     files['src/common/middlewares/request-logger.middleware.ts'] = createMiddlewareTemplate();
     files['src/common/interceptors/timing.interceptor.ts'] = createInterceptorTemplate();
     files['src/common/interceptors/response-envelope.interceptor.ts'] = createGlobalInterceptorTemplate();
@@ -168,7 +165,9 @@ API_KEY=
 }
 
 function addResource(files: ProjectFileMap, name: string, withPipeline: boolean): void {
-  const resourceFiles = createResourceTemplates(name, { withPipeline });
+  const resourceFiles = createResourceTemplates(name, {
+    withPipeline,
+  });
   for (const [fileName, content] of Object.entries(resourceFiles)) {
     files[`src/modules/users/${fileName}`] = content;
   }
@@ -253,19 +252,6 @@ export class AppExceptionHandler extends ExceptionHandler {
 `;
 }
 
-function createGuardTemplate(): string {
-  return `import { Guard, Request } from '@expressxjs/core';
-
-export class ApiKeyGuard extends Guard {
-  public canActivate(req: Request): boolean {
-    const configuredKey = process.env.API_KEY;
-    if (!configuredKey) return true;
-    return req.headers['x-api-key'] === configuredKey;
-  }
-}
-`;
-}
-
 function createMiddlewareTemplate(): string {
   return `import {
   ExpressXLogger,
@@ -323,11 +309,7 @@ export class ResponseEnvelopeInterceptor extends ExpressXInterceptor {
 `;
 }
 
-function createReadme(
-  projectName: string,
-  template: ProjectTemplate,
-  filePaths: string[],
-): string {
+function createReadme(projectName: string, template: ProjectTemplate, filePaths: string[]): string {
   const sourceFiles = filePaths
     .filter((filePath) => filePath.startsWith('src/'))
     .sort()
@@ -372,19 +354,14 @@ ${sourceFiles}
 `;
 }
 
-function runSetupCommand(
-  command: string,
-  args: string[],
-  cwd: string,
-  label: string,
-): void {
+function runSetupCommand(command: string, args: string[], cwd: string, label: string): void {
   logger.info(`${label}: running ${command} ${args.join(' ')}`, 'Project');
-  const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: 'inherit',
+  });
   if (result.error || result.status !== 0) {
-    logger.warn(
-      `${label} setup did not complete. You can run "${command} ${args.join(' ')}" manually.`,
-      'Project',
-    );
+    logger.warn(`${label} setup did not complete. You can run "${command} ${args.join(' ')}" manually.`, 'Project');
   }
 }
 

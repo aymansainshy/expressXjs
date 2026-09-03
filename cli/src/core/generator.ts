@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { ExpressXScanner, type ScanConfig } from '@expressxjs/core/scanner';
 import {
   ComponentType,
   componentDirectories,
@@ -10,7 +11,6 @@ import {
   typeAliases,
 } from '../constant/appComponents';
 import { logger } from '../constant/logger';
-import { ScanConfig } from '../constant/scanInerfaces';
 
 export interface GenerateOptions {
   dryRun?: boolean;
@@ -31,34 +31,13 @@ export class Generator {
   }
 
   public getConfig(): ScanConfig {
-    const pkgPath = path.join(process.cwd(), 'package.json');
-
-    if (!fs.existsSync(pkgPath)) {
-      throw new Error('package.json not found in current directory.');
-    }
-
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-
-    if (!pkg.expressx?.sourceDir) {
-      throw new Error(
-        'Missing "expressx.sourceDir" in package.json.\n\n' +
-        'Add this configuration:\n' +
-        JSON.stringify({ expressx: { sourceDir: 'src', outDir: 'dist', main: 'src/index.ts' } }, null, 2),
-      );
-    }
-
-    return {
-      sourceDir: pkg.expressx.sourceDir,
-      outDir: pkg.expressx.outDir || 'dist',
-    };
+    return ExpressXScanner.getConfig();
   }
 
   public generate(typeInput: string, name: string, customPath?: string, options: GenerateOptions = {}): void {
     const type = typeAliases[typeInput.toLowerCase()];
     if (!type) {
-      throw new Error(
-        `Unknown type: ${typeInput}. Available: ${[...componentTypes, 'resource'].join(', ')}`,
-      );
+      throw new Error(`Unknown type: ${typeInput}. Available: ${[...componentTypes, 'resource'].join(', ')}`);
     }
 
     if (!name.trim()) {
@@ -66,15 +45,20 @@ export class Generator {
     }
 
     const targetPath = options.path || customPath;
-    const files = type === 'resource'
-      ? this.createResourceFiles(name, targetPath)
-      : [this.createComponentFile(type, name, targetPath)];
+    const files =
+      type === 'resource'
+        ? this.createResourceFiles(name, targetPath)
+        : [this.createComponentFile(type, name, targetPath)];
 
     this.writeFiles(type, name, files, options);
   }
 
   public generateBatch(
-    items: Array<{ type: string; name: string; path?: string }>,
+    items: Array<{
+      type: string;
+      name: string;
+      path?: string;
+    }>,
     options: GenerateOptions = {},
   ): void {
     logger.info(`Generating ${items.length} component(s)...`, 'Generator');
@@ -88,7 +72,7 @@ export class Generator {
     const context = createTemplateContext(type, name);
     const directory = customPath
       ? this.resolveProjectPath(customPath)
-      : path.join(process.cwd(), this.sourceDir, componentDirectories[type]);
+      : this.resolveProjectPath(path.join(this.sourceDir, componentDirectories[type]));
     const suffix = type === 'exception' ? 'exception-handler' : type;
 
     return {
@@ -101,7 +85,7 @@ export class Generator {
     const context = createTemplateContext('controller', name);
     const directory = customPath
       ? this.resolveProjectPath(customPath)
-      : path.join(process.cwd(), this.sourceDir, 'modules', context.routeName);
+      : this.resolveProjectPath(path.join(this.sourceDir, 'modules', context.routeName));
 
     return Object.entries(createResourceTemplates(name)).map(([fileName, content]) => ({
       path: path.join(directory, fileName),
@@ -137,14 +121,14 @@ export class Generator {
 
     const existingFiles = files.filter((file) => fs.existsSync(file.path));
     if (existingFiles.length > 0 && !options.force) {
-      const list = existingFiles
-        .map((file) => `  - ${path.relative(process.cwd(), file.path)}`)
-        .join('\n');
+      const list = existingFiles.map((file) => `  - ${path.relative(process.cwd(), file.path)}`).join('\n');
       throw new Error(`Refusing to overwrite existing files:\n${list}\nUse --force to overwrite them.`);
     }
 
     for (const file of files) {
-      fs.mkdirSync(path.dirname(file.path), { recursive: true });
+      fs.mkdirSync(path.dirname(file.path), {
+        recursive: true,
+      });
       fs.writeFileSync(file.path, file.content, 'utf-8');
       logger.success(`Created ${path.relative(process.cwd(), file.path)}`, 'Generator');
     }

@@ -6,8 +6,8 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
     /* Modules */
-    "module": "NodeNext", // ✅ Works with CommonJS output
-    "moduleResolution": "nodenext", // ✅ Modern Node.js resolution
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
     /* Build */
     "sourceMap": true,
     "allowJs": false,
@@ -17,20 +17,12 @@
     "declaration": true,
     "declarationMap": true,
     "esModuleInterop": true,
-    "isolatedModules": false,
+    "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     /* Type Checking */
     "strict": true,
     "skipLibCheck": true
   },
-  "include": [
-    "packages/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "test",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "include": ["packages/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*.test.ts", "**/*.spec.ts"]
 }

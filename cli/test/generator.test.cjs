@@ -14,8 +14,14 @@ function createWorkspace() {
     path.join(workspace, 'package.json'),
     JSON.stringify({
       name: 'generator-test',
-      dependencies: { '@expressxjs/core': cliPackage.dependencies['@expressxjs/core'] },
-      expressx: { sourceDir: 'src', outDir: 'dist', main: 'src/index.ts' },
+      dependencies: {
+        '@expressxjs/core': cliPackage.dependencies['@expressxjs/core'],
+      },
+      expressx: {
+        sourceDir: 'src',
+        outDir: 'dist',
+        main: 'src/index.ts',
+      },
     }),
   );
   return workspace;
@@ -28,61 +34,97 @@ function inDirectory(directory, callback) {
     callback();
   } finally {
     process.chdir(previousDirectory);
-    fs.rmSync(directory, { recursive: true, force: true });
+    fs.rmSync(directory, {
+      recursive: true,
+      force: true,
+    });
   }
 }
 
-test('generates a correctly named controller in its conventional folder', { concurrency: false }, () => {
-  const workspace = createWorkspace();
-  inDirectory(workspace, () => {
-    new Generator().generate('controller', 'user-profile');
-    const filePath = path.join(workspace, 'src/controllers/user-profile.controller.ts');
-    const content = fs.readFileSync(filePath, 'utf-8');
+test(
+  'generates a correctly named controller in its conventional folder',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      new Generator().generate('controller', 'user-profile');
+      const filePath = path.join(workspace, 'src/controllers/user-profile.controller.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
 
-    assert.match(content, /export class UserProfileController/);
-    assert.match(content, /@Controller\('\/user-profiles'\)/);
-    assert.match(content, /@GET\('\/'\)/);
-  });
-});
-
-test('resource generation creates a wired controller, service, and DTO', { concurrency: false }, () => {
-  const workspace = createWorkspace();
-  inDirectory(workspace, () => {
-    new Generator().generate('resource', 'Product');
-    const resourcePath = path.join(workspace, 'src/modules/products');
-
-    assert.ok(fs.existsSync(path.join(resourcePath, 'product.controller.ts')));
-    assert.ok(fs.existsSync(path.join(resourcePath, 'product.service.ts')));
-    assert.ok(fs.existsSync(path.join(resourcePath, 'product.dto.ts')));
-    assert.match(
-      fs.readFileSync(path.join(resourcePath, 'product.controller.ts'), 'utf-8'),
-      /@Inject\(ProductService\)/,
-    );
-  });
-});
-
-test('new projects default to a complete, current full scaffold', { concurrency: false }, () => {
-  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'expressx-project-'));
-  inDirectory(workspace, () => {
-    createProject('ultimate-app', { skipInstall: true, skipGit: true });
-    const projectPath = path.join(workspace, 'ultimate-app');
-    const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf-8'));
-
-    assert.deepEqual(pkg.expressx, {
-      sourceDir: 'src',
-      outDir: 'dist',
-      main: 'src/index.ts',
+      assert.match(content, /export class UserProfileController/);
+      assert.match(content, /@Controller\('\/user-profiles'\)/);
+      assert.match(content, /@GET\('\/'\)/);
     });
-    assert.equal(pkg.scripts.build, 'expressx build && tsc');
-    assert.equal(
-      pkg.dependencies['@expressxjs/core'],
-      cliPackage.dependencies['@expressxjs/core'],
-    );
-    assert.ok(fs.existsSync(path.join(projectPath, 'src/modules/users/user.controller.ts')));
-    assert.ok(fs.existsSync(path.join(projectPath, 'src/common/guards/api-key.guard.ts')));
-    assert.ok(fs.existsSync(path.join(projectPath, 'src/common/exceptions/app.exception-handler.ts')));
-    const bootstrap = fs.readFileSync(path.join(projectPath, 'src/index.ts'), 'utf-8');
-    assert.match(bootstrap, /import \{ MyApplication \} from '\.\/application';/);
-    assert.match(bootstrap, /ExpressXFactory\.createApp<MyApplication>\(\)/);
-  });
-});
+  },
+);
+
+test(
+  'resource generation creates a wired controller, service, and DTO',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      new Generator().generate('resource', 'Product');
+      const resourcePath = path.join(workspace, 'src/modules/products');
+
+      assert.ok(fs.existsSync(path.join(resourcePath, 'product.controller.ts')));
+      assert.ok(fs.existsSync(path.join(resourcePath, 'product.service.ts')));
+      assert.ok(fs.existsSync(path.join(resourcePath, 'product.dto.ts')));
+      assert.match(
+        fs.readFileSync(path.join(resourcePath, 'product.controller.ts'), 'utf-8'),
+        /@Inject\(ProductService\)/,
+      );
+    });
+  },
+);
+
+test(
+  'rejects component names that cannot form TypeScript identifiers',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      assert.throws(() => new Generator().generate('controller', '123'), /valid TypeScript identifier/);
+    });
+  },
+);
+
+test(
+  'new projects default to a complete, current full scaffold',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'expressx-project-'));
+    inDirectory(workspace, () => {
+      createProject('ultimate-app', {
+        skipInstall: true,
+        skipGit: true,
+      });
+      const projectPath = path.join(workspace, 'ultimate-app');
+      const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf-8'));
+
+      assert.deepEqual(pkg.expressx, {
+        sourceDir: 'src',
+        outDir: 'dist',
+        main: 'src/index.ts',
+      });
+      assert.equal(pkg.scripts.build, 'expressx build && tsc');
+      assert.equal(pkg.dependencies['@expressxjs/core'], cliPackage.dependencies['@expressxjs/core']);
+      assert.ok(fs.existsSync(path.join(projectPath, 'src/modules/users/user.controller.ts')));
+      assert.equal(fs.existsSync(path.join(projectPath, 'src/common/guards/api-key.guard.ts')), false);
+      assert.ok(fs.existsSync(path.join(projectPath, 'src/common/exceptions/app.exception-handler.ts')));
+      const bootstrap = fs.readFileSync(path.join(projectPath, 'src/index.ts'), 'utf-8');
+      assert.match(bootstrap, /import \{ MyApplication \} from '\.\/application';/);
+      assert.match(bootstrap, /ExpressXFactory\.createApp<MyApplication>\(\)/);
+      const controller = fs.readFileSync(path.join(projectPath, 'src/modules/users/user.controller.ts'), 'utf-8');
+      assert.doesNotMatch(controller, /ApiKeyGuard|UseGuards/);
+    });
+  },
+);

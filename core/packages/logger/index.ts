@@ -1,1 +1,1 @@
-export { ExpressXLogger } from './logger'
+export { ExpressXLogger } from './logger';

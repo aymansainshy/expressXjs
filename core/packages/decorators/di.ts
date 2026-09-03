@@ -15,7 +15,6 @@ import {
   container as ExpressXContainer,
 } from 'tsyringe';
 
-
 //
 // ─────────────────────────────────────────────
 //  CLASS DECORATORS
@@ -62,7 +61,6 @@ export function AutoInjectable(): ClassDecorator {
 // ─────────────────────────────────────────────
 //
 
-
 export interface RegistrationOptions {
   lifecycle?: Lifecycle;
 }
@@ -79,7 +77,7 @@ export type RegistryProvider<T = any> = {
 export function createProvider<T>(
   token: InjectionToken<T>,
   implementation: new (...args: any[]) => T,
-  options?: RegistrationOptions
+  options?: RegistrationOptions,
 ): RegistryProvider<T> {
   return {
     token,
@@ -88,10 +86,9 @@ export function createProvider<T>(
   };
 }
 
-
 export function Registry(providers: RegistryProvider[]): ClassDecorator {
   return (target: any) => {
-    providers.forEach(p => {
+    providers.forEach((p) => {
       if (!p.token) {
         throw new Error('Provider must have a token');
       }
@@ -99,8 +96,6 @@ export function Registry(providers: RegistryProvider[]): ClassDecorator {
     return registry(providers as any)(target);
   };
 }
-
-
 
 //
 // ─────────────────────────────────────────────
@@ -140,7 +135,7 @@ function createTransformToken(fn: (value: any) => any): InjectionToken<Transform
 
 export function InjectWithTransform<TInput = any, TOutput = any>(
   token: InjectionToken<TInput>,
-  transformer: (value: TInput) => TOutput
+  transformer: (value: TInput) => TOutput,
 ): ParameterDecorator {
   return (target, propertyKey, parameterIndex) => {
     const transformToken = createTransformToken(transformer);
@@ -148,9 +143,7 @@ export function InjectWithTransform<TInput = any, TOutput = any>(
   };
 }
 
-
-export {
-  // Type exports
+export type {
   DependencyContainer,
   InjectionToken,
   Provider,
@@ -159,11 +152,10 @@ export {
   TokenProvider,
   ClassProvider,
   Disposable,
-  // Note: Lifecycle is both a value and a type, so we export it once above
+} from 'tsyringe';
+
+export {
   Lifecycle,
-  // ============================================
-  // The Container & Core Logic - Re-export
-  // ===========================================
   instanceCachingFactory,
   instancePerContainerCachingFactory,
   predicateAwareClassFactory,

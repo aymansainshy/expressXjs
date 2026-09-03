@@ -1,30 +1,31 @@
-import { ExpressXInterceptor } from "../base/interceptors/interceptors";
-import { logger } from "../logger/logger";
-import { ExpressXContainer, Singleton } from "./di";
+import { ExpressXInterceptor } from '../base/interceptors/interceptors';
+import { logger } from '../logger/logger';
+import { ExpressXContainer } from './di';
+
+export type ExpressXInterceptorConstructor = new (...args: any[]) => ExpressXInterceptor;
 
 export function UseGlobalInterceptor(): ClassDecorator {
   return (target: any) => {
     logger.debug(`Applying @UseGlobalInterceptor decorator to class "${target.name}"`, 'Decorator');
-    const constructor = target as unknown as ExpressXInterceptor;
+    const constructor = target as unknown as ExpressXInterceptorConstructor;
 
     if (!(target.prototype instanceof ExpressXInterceptor)) {
       const error = new Error(
         `@UseGlobalInterceptor decorator can only be applied to classes extending ExpressXInterceptor. ` +
-        `Class "${target.name}" does not extend ExpressXInterceptor.`
+          `Class "${target.name}" does not extend ExpressXInterceptor.`,
       );
       logger.error(error.message, 'Decorator', error);
       throw error;
     }
-    ExpressXContainer.registerSingleton(constructor as any);
-    GlobalInterceptorRegistry.register(target);
+    ExpressXContainer.registerSingleton(constructor);
+    GlobalInterceptorRegistry.register(constructor);
   };
 }
 
-
 export class GlobalInterceptorRegistry {
-  private static readonly classes: any[] = [];
+  private static readonly classes: ExpressXInterceptorConstructor[] = [];
 
-  static register(cls: any) {
+  static register(cls: ExpressXInterceptorConstructor): void {
     if (this.classes.includes(cls)) {
       logger.warn(`Global interceptor "${cls.name}" is already registered - ignoring duplicate`, 'Interceptor');
       return;
@@ -33,7 +34,7 @@ export class GlobalInterceptorRegistry {
     logger.debug(`Registered global interceptor "${cls.name}" (total: ${this.classes.length})`, 'Interceptor');
   }
 
-  static getAll() {
+  static getAll(): ExpressXInterceptorConstructor[] {
     return [...this.classes];
   }
 }
