@@ -143,8 +143,7 @@ export function InjectWithTransform<TInput = any, TOutput = any>(
   };
 }
 
-export {
-  // Type exports
+export type {
   DependencyContainer,
   InjectionToken,
   Provider,
@@ -153,11 +152,10 @@ export {
   TokenProvider,
   ClassProvider,
   Disposable,
-  // Note: Lifecycle is both a value and a type, so we export it once above
+} from 'tsyringe';
+
+export {
   Lifecycle,
-  // ============================================
-  // The Container & Core Logic - Re-export
-  // ===========================================
   instanceCachingFactory,
   instancePerContainerCachingFactory,
   predicateAwareClassFactory,

@@ -1,5 +1,4 @@
-export {
-  // Type exports
+export type {
   DependencyContainer,
   InjectionToken,
   Provider,
@@ -8,11 +7,10 @@ export {
   TokenProvider,
   ClassProvider,
   Disposable,
-  // Note: Lifecycle is both a value and a type, so we export it once above
+} from '../decorators/di';
+
+export {
   Lifecycle,
-  // ============================================
-  // The Container & Core Logic - Re-export
-  // ============================================
   ExpressXContainer,
   createProvider,
   instanceCachingFactory,

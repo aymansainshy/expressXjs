@@ -107,7 +107,7 @@ Decorated TypeScript files
 ExpressX imports modules -> decorators register metadata -> application is assembled
 ```
 
-Without the manifest, an application would need either an explicit import and registration list or a recursive filesystem scan on every production startup. ExpressX generates that list ahead of time, then imports only the files needed to activate application, controller, global interceptor, and global exception-handler decorators.
+Without the manifest, an application would need either an explicit import and registration list or a recursive filesystem scan on every production startup. ExpressX generates that list ahead of time, then imports only the files needed to activate application, controller, global interceptor, and global exception-handler decorators. Discovery uses the TypeScript compiler AST in both modes: it reads decorator syntax and aliases from TypeScript, and it can recognize emitted decorator calls in compiled JavaScript without matching names inside comments or strings.
 
 A development manifest has this shape:
 
@@ -151,10 +151,12 @@ ExpressX maintains two forms of the manifest:
 
 When Core runs in TypeScript mode, a missing, unreadable, or incompatible development manifest triggers a source scan and a new manifest is written. TypeScript mode is selected when `EXPRESSX_RUNTIME=ts` or `NODE_ENV=development`; the CLI sets the appropriate defaults for `expressx dev`. Production startup is intentionally strict and does not scan source files as a fallback.
 
+To avoid rescanning the project on every development startup, an existing development manifest is treated as the known file list. The running CLI watches additions, changes, and deletions. If you add a decorated file while the CLI is stopped, delete `src/.expressx/cache.json` before the next start so ExpressX performs a fresh discovery scan.
+
 Treat both files as generated artifacts:
 
 - Do not edit `cache.json` by hand.
-- Run `expressx dev` while developing so additions, moves, and deletions are reflected automatically.
+- Run `expressx dev` while developing so additions, moves, and deletions made during that session are reflected automatically.
 - Run `npm run build` after changing decorated files.
 - Deploy `dist/.expressx/cache.json` together with the compiled JavaScript in `dist`.
 - Do not copy the development manifest into `dist`; its paths point to TypeScript source files.
@@ -418,7 +420,7 @@ import { HttpResponse } from '@expressxjs/core/http';
 import { ExpressXFactory } from '@expressxjs/core/framework';
 ```
 
-Other subpaths include `/base`, `/common`, `/runtime`, `/scanner`, `/dicontainer`, and `/errors`. The singular `/error` alias remains available for compatibility.
+Other subpaths include `/base`, `/common`, `/runtime`, `/scanner`, `/di-container`, and `/errors`. The legacy `/dicontainer` and singular `/error` aliases remain available for compatibility.
 
 ## License
 

@@ -13,5 +13,9 @@ export function shouldIgnoreWatchPath(watchPath: string, stats?: Stats): boolean
     return false;
   }
 
-  return !watchPath.endsWith('.ts') || watchPath.endsWith('.spec.ts') || watchPath.endsWith('.test.ts');
+  const isTypeScript = /\.(?:ts|tsx|mts|cts)$/.test(watchPath);
+  const isTestFile = /\.(?:spec|test)\.(?:ts|tsx|mts|cts)$/.test(watchPath);
+  const isDeclaration = /\.d\.(?:ts|mts|cts)$/.test(watchPath);
+
+  return !isTypeScript || isTestFile || isDeclaration;
 }

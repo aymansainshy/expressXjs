@@ -33,11 +33,11 @@ expressx new my-api --template default
 expressx new my-api --skip-install --skip-git
 ```
 
-| Template  | Includes                                                                                |
-| --------- | --------------------------------------------------------------------------------------- |
-| `default` | Application bootstrap and a complete users CRUD resource                                |
-| `api`     | Default template plus global exception handling                                         |
-| `full`    | API template plus guard, middleware, route interceptor, and global response interceptor |
+| Template  | Includes                                                                         |
+| --------- | -------------------------------------------------------------------------------- |
+| `default` | Application bootstrap and a complete users CRUD resource                         |
+| `api`     | Default template plus global exception handling                                  |
+| `full`    | API template plus middleware, route interceptor, and global response interceptor |
 
 The full scaffold uses a feature-first structure:
 
@@ -46,7 +46,6 @@ my-api/
 ├── src/
 │   ├── common/
 │   │   ├── exceptions/app.exception-handler.ts
-│   │   ├── guards/api-key.guard.ts
 │   │   ├── interceptors/
 │   │   │   ├── response-envelope.interceptor.ts
 │   │   │   └── timing.interceptor.ts
@@ -136,6 +135,10 @@ expressx dev --max-old-space-size=4096
 # Build the scanner cache, then compile TypeScript
 npm run build
 
+# Target a custom compiler output directory
+expressx build --output build
+tsc --outDir build
+
 # Run compiled output
 npm start
 ```
@@ -152,6 +155,10 @@ The generated scripts are:
   }
 }
 ```
+
+The development cache is intentionally reused between CLI sessions. Files added while `expressx dev` is running are detected automatically. If you add a decorated file while the CLI is stopped, delete `<sourceDir>/.expressx/cache.json` before starting the CLI again to trigger a fresh scan.
+
+`expressx build --output <dir>` writes the production cache into that directory and maps discovered TypeScript paths to their compiled JavaScript extensions. Compile the application into the same directory.
 
 ## Command reference
 

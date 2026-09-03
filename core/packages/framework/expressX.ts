@@ -1,4 +1,4 @@
-import { OnInitExpressXApp } from './onIniteSetup';
+import { OnInitExpressXApp } from './on-init-setup';
 import { ExpressXApp } from './types';
 
 export abstract class ExpressX {

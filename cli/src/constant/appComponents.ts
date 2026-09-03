@@ -76,6 +76,9 @@ function pluralize(value: string): string {
 
 export function createTemplateContext(type: ComponentType, inputName: string): TemplateContext {
   const requestedName = toPascalCase(inputName.trim());
+  if (!/^[A-Za-z][A-Za-z0-9]*$/.test(requestedName)) {
+    throw new Error(`Component name must produce a valid TypeScript identifier: "${inputName}"`);
+  }
   const suffix = suffixes[type];
   const suffixPattern = new RegExp(`${suffix}$`, 'i');
   const baseName = requestedName.replace(suffixPattern, '') || requestedName;
@@ -220,18 +223,16 @@ export function createResourceTemplates(
   const context = createTemplateContext('controller', inputName);
   const { baseName, fileName, routeName } = context;
   const pipelineImports = options.withPipeline
-    ? `import { ApiKeyGuard } from '../../common/guards/api-key.guard';
-import { RequestLoggerMiddleware } from '../../common/middlewares/request-logger.middleware';
+    ? `import { RequestLoggerMiddleware } from '../../common/middlewares/request-logger.middleware';
 import { TimingInterceptor } from '../../common/interceptors/timing.interceptor';
 `
     : '';
   const pipelineDecorators = options.withPipeline
-    ? `  @UseGuards(ApiKeyGuard)
-  @UseMiddlewares(RequestLoggerMiddleware)
+    ? `  @UseMiddlewares(RequestLoggerMiddleware)
   @UseInterceptors(TimingInterceptor)
 `
     : '';
-  const pipelineSymbols = options.withPipeline ? ', UseGuards, UseInterceptors, UseMiddlewares' : '';
+  const pipelineSymbols = options.withPipeline ? ', UseInterceptors, UseMiddlewares' : '';
 
   return {
     [`${fileName}.dto.ts`]: `export interface Create${baseName}Dto {

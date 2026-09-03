@@ -83,6 +83,19 @@ test(
 );
 
 test(
+  'rejects component names that cannot form TypeScript identifiers',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      assert.throws(() => new Generator().generate('controller', '123'), /valid TypeScript identifier/);
+    });
+  },
+);
+
+test(
   'new projects default to a complete, current full scaffold',
   {
     concurrency: false,
@@ -105,11 +118,13 @@ test(
       assert.equal(pkg.scripts.build, 'expressx build && tsc');
       assert.equal(pkg.dependencies['@expressxjs/core'], cliPackage.dependencies['@expressxjs/core']);
       assert.ok(fs.existsSync(path.join(projectPath, 'src/modules/users/user.controller.ts')));
-      assert.ok(fs.existsSync(path.join(projectPath, 'src/common/guards/api-key.guard.ts')));
+      assert.equal(fs.existsSync(path.join(projectPath, 'src/common/guards/api-key.guard.ts')), false);
       assert.ok(fs.existsSync(path.join(projectPath, 'src/common/exceptions/app.exception-handler.ts')));
       const bootstrap = fs.readFileSync(path.join(projectPath, 'src/index.ts'), 'utf-8');
       assert.match(bootstrap, /import \{ MyApplication \} from '\.\/application';/);
       assert.match(bootstrap, /ExpressXFactory\.createApp<MyApplication>\(\)/);
+      const controller = fs.readFileSync(path.join(projectPath, 'src/modules/users/user.controller.ts'), 'utf-8');
+      assert.doesNotMatch(controller, /ApiKeyGuard|UseGuards/);
     });
   },
 );

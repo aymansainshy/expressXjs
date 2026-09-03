@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { verifyExpressXProject } from './utils/verfiyProject';
+import { allowedNodeEnvironmentFlags } from 'node:process';
+import { verifyExpressXProject } from './utils/verifyProject';
 import { getEntrypoint } from './utils/getEntrypoint';
 import { colors } from './constant/colors';
 import { logger } from './constant/logger';
@@ -102,21 +103,16 @@ ${colors.bold('Features:')}
   )
   .allowUnknownOption(true)
   .allowExcessArguments(true)
-  .action(function (this: Command) {
-    try {
-      verifyExpressXProject();
-      const entry = getEntrypoint();
-      const rawArgs = process.argv.slice(3);
-      const { nodeFlags, appFlags } = separateAllFlags(rawArgs);
-      const server = new DevServer(entry, {
-        nodeFlags,
-        appFlags,
-      });
-      server.start();
-    } catch (err: any) {
-      logger.error(err.message, 'CLI', err);
-      process.exit(1);
-    }
+  .action(async function (this: Command) {
+    verifyExpressXProject();
+    const entry = getEntrypoint();
+    const rawArgs = process.argv.slice(3);
+    const { nodeFlags, appFlags } = separateAllFlags(rawArgs);
+    const server = new DevServer(entry, {
+      nodeFlags,
+      appFlags,
+    });
+    await server.start();
   });
 
 // --- Build Command ---
@@ -124,8 +120,6 @@ program
   .command('build')
   .description('Build the application for production deployment')
   .option('-o, --output <dir>', 'Custom output directory (default: dist)')
-  .option('--minify', 'Enable minification hint for bundler')
-  .option('--sourcemap', 'Generate source maps')
   .option('--verbose', 'Show detailed build information')
   .addHelpText(
     'before',
@@ -151,13 +145,10 @@ ${colors.bold('Examples:')}
     Basic build with default settings
 
   ${colors.cyan('$ expressx build --output build')}
-    Build to 'build' directory instead of 'dist'
+    Generate build/.expressx/cache.json (compile with tsc --outDir build)
 
   ${colors.cyan('$ expressx build --verbose')}
     Show detailed build information
-
-  ${colors.cyan('$ expressx build --sourcemap')}
-    Hint to generate source maps (configure in tsconfig.json)
 
   ${colors.cyan('$ expressx build && tsc')}
     Build cache then compile TypeScript
@@ -174,13 +165,8 @@ ${colors.bold('Files created:')}
   • dist/.expressx/cache.json (production cache)
 `,
   )
-  .action((options) => {
-    try {
-      buildCommand(options);
-    } catch (err: any) {
-      logger.error(err.message, 'CLI', err);
-      process.exit(1);
-    }
+  .action(async (options) => {
+    await buildCommand(options);
   });
 
 // --- New/Create Command ---
@@ -240,8 +226,8 @@ ${colors.bold('Template: api')}
   Adds a global exception handler to the default API
 
 ${colors.bold('Template: full')}
-  Adds an API-key guard, request logger, route timing interceptor,
-  response envelope interceptor, and global exception handler
+  Adds a request logger, route timing interceptor, response envelope
+  interceptor, and global exception handler
 
 ${colors.bold('Next steps after creation:')}
   ${colors.cyan('cd <project-name>')}
@@ -250,12 +236,7 @@ ${colors.bold('Next steps after creation:')}
 `,
   )
   .action((projectName: string, options: any) => {
-    try {
-      createProject(projectName, options);
-    } catch (err: any) {
-      logger.error(err.message, 'CLI', err);
-      process.exit(1);
-    }
+    createProject(projectName, options);
   });
 
 // --- Generate Command ---
@@ -325,15 +306,9 @@ ${colors.bold('Workflow Example:')}
 `,
   )
   .action((type: string, name: string, customPath?: string, options?: any) => {
-    try {
-      verifyExpressXProject();
-
-      const generator = new Generator();
-      generator.generate(type, name, customPath, options);
-    } catch (err: any) {
-      logger.error(err.message, 'CLI', err);
-      process.exit(1);
-    }
+    verifyExpressXProject();
+    const generator = new Generator();
+    generator.generate(type, name, customPath, options);
   });
 
 // --- Help Command ---
@@ -354,160 +329,34 @@ program
     }
   });
 
-/**
- * ALL_NODE_FLAGS - Comprehensive list of Node.js flags
- */
-const ALL_NODE_FLAGS = new Set([
-  '--inspect',
-  '--inspect-brk',
-  '--inspect-port',
-  '--inspect-publish-uid',
-  '--debug',
-  '--debug-brk',
-  '--debug-port',
-  '--max-old-space-size',
-  '--max-new-space-size',
-  '--max-semi-space-size',
-  '--max-http-header-size',
-  '--max-string-length',
-  '--expose-gc',
-  '--gc-global',
-  '--gc-interval',
-  '--trace-warnings',
-  '--trace-deprecation',
-  '--trace-sync-io',
-  '--trace-events-enabled',
-  '--trace-event-categories',
-  '--trace-event-file-pattern',
-  '--trace-exit',
-  '--trace-sigint',
-  '--trace-uncaught',
-  '--no-warnings',
-  '--no-deprecation',
-  '--throw-deprecation',
-  '--pending-deprecation',
-  '--no-force-async-hooks-checks',
-  '--require',
-  '--import',
-  '--loader',
-  '--experimental-loader',
-  '--input-type',
-  '--experimental-modules',
-  '--es-module-specifier-resolution',
-  '--experimental-specifier-resolution',
-  '--experimental-json-modules',
-  '--experimental-wasm-modules',
-  '--experimental-top-level-await',
-  '--experimental-vm-modules',
-  '--experimental-worker',
-  '--experimental-report',
-  '--experimental-import-meta-resolve',
-  '--cpu-prof',
-  '--cpu-prof-name',
-  '--cpu-prof-interval',
+const APPLICATION_FLAGS = new Set(['--port', '--host', '--env', '--workers', '--verbose', '--debug']);
+const NODE_FLAGS_TAKING_VALUES = new Set([
+  '--conditions',
   '--cpu-prof-dir',
-  '--heap-prof',
-  '--heap-prof-name',
-  '--heap-prof-interval',
+  '--diagnostic-dir',
+  '--dns-result-order',
   '--heap-prof-dir',
-  '--perf-prof',
-  '--perf-basic-prof',
-  '--perf-basic-prof-only-functions',
-  '--prof',
-  '--prof-process',
-  '--stack-trace-limit',
-  '--heapsnapshot-signal',
-  '--heapsnapshot-near-heap-limit',
-  '--v8-pool-size',
-  '--zero-fill-buffers',
-  '--track-heap-objects',
-  '--interpreted-frames-native-stack',
-  '--jitless',
-  '--experimental-policy',
-  '--policy-integrity',
-  '--secure-heap',
-  '--secure-heap-min',
-  '--disable-proto',
-  '--disallow-code-generation-from-strings',
-  '--frozen-intrinsics',
-  '--tls-cipher-list',
-  '--tls-min-v1.0',
-  '--tls-min-v1.1',
-  '--tls-min-v1.2',
-  '--tls-min-v1.3',
-  '--tls-max-v1.2',
-  '--tls-max-v1.3',
-  '--use-openssl-ca',
-  '--use-bundled-ca',
-  '--openssl-config',
   '--icu-data-dir',
-  '--experimental-global-webcrypto',
-  '--enable-source-maps',
-  '--report-compact',
+  '--import',
+  '--inspect-port',
+  '--loader',
+  '--max-http-header-size',
+  '--max-old-space-size',
+  '--max-semi-space-size',
+  '--openssl-config',
+  '--redirect-warnings',
   '--report-dir',
   '--report-filename',
-  '--report-on-fatalerror',
-  '--report-on-signal',
-  '--report-signal',
-  '--report-uncaught-exception',
-  '--report-directory',
-  '--async-stack-traces',
-  '--snapshot-blob',
-  '--build-snapshot',
-  '--diagnostic-dir',
-  '--redirect-warnings',
-  '--abort-on-uncaught-exception',
-  '--abort-signal-uncaught',
-  '--dns-result-order',
-  '--unhandled-rejections',
+  '--require',
+  '--stack-trace-limit',
   '--title',
-  '--preserve-symlinks',
-  '--preserve-symlinks-main',
-  '--conditions',
-  '--experimental-network-imports',
-  '--experimental-repl-await',
-  '--watch',
-  '--watch-path',
-  '--watch-preserve-output',
-  '--test',
-  '--test-only',
-  '--test-name-pattern',
-  '--test-reporter',
-  '--test-reporter-destination',
-  '--force-context-aware',
-  '--force-fips',
-  '--pending-deprecation',
-  '--no-addons',
-  '--no-global-search-paths',
-  '--node-memory-debug',
-  '--openssl-legacy-provider',
-  '--openssl-shared-config',
-  '--huge-max-old-generation-size',
-  '--security-revert',
+  '--unhandled-rejections',
 ]);
 
 function isNodeFlag(flag: string): boolean {
   const flagName = flag.split('=')[0];
-  if (ALL_NODE_FLAGS.has(flagName)) return true;
-
-  for (const nodeFlag of ALL_NODE_FLAGS) {
-    if (flagName === nodeFlag || flag.startsWith(nodeFlag + '=')) return true;
-  }
-
-  if (
-    flagName.startsWith('--v8-') ||
-    flagName.startsWith('--harmony') ||
-    flagName.startsWith('--trace-') ||
-    flagName.startsWith('--max-') ||
-    flagName.startsWith('--experimental-') ||
-    flagName.startsWith('--diagnostic-') ||
-    flagName.includes('-prof') ||
-    flagName.includes('heap') ||
-    flagName.includes('snapshot')
-  )
-    return true;
-
-  return false;
+  if (APPLICATION_FLAGS.has(flagName)) return false;
+  return allowedNodeEnvironmentFlags.has(flag) || allowedNodeEnvironmentFlags.has(flagName);
 }
 
 function separateAllFlags(rawArgs: string[]): {
@@ -525,26 +374,7 @@ function separateAllFlags(rawArgs: string[]): {
       if (isNodeFlag(arg)) {
         nodeFlags.push(arg);
         if (!arg.includes('=') && i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith('-')) {
-          const flagsTakingValues = [
-            '--require',
-            '--import',
-            '--loader',
-            '--experimental-loader',
-            '--conditions',
-            '--title',
-            '--redirect-warnings',
-            '--report-dir',
-            '--report-filename',
-            '--diagnostic-dir',
-            '--cpu-prof-dir',
-            '--heap-prof-dir',
-            '--openssl-config',
-            '--icu-data-dir',
-            '--dns-result-order',
-            '--unhandled-rejections',
-          ];
-
-          if (flagsTakingValues.includes(arg)) {
+          if (NODE_FLAGS_TAKING_VALUES.has(arg)) {
             nodeFlags.push(rawArgs[i + 1]);
             i++;
           }
@@ -568,10 +398,17 @@ function separateAllFlags(rawArgs: string[]): {
   };
 }
 
-// --- Parse Arguments ---
-program.parse(process.argv);
+async function main(): Promise<void> {
+  if (!process.argv.slice(2).length) {
+    program.outputHelp();
+    return;
+  }
 
-// Show help if no command provided
-if (!process.argv.slice(2).length) {
-  program.outputHelp();
+  await program.parseAsync(process.argv);
 }
+
+void main().catch((error: unknown) => {
+  const cause = error instanceof Error ? error : new Error(String(error));
+  logger.error(cause.message, 'CLI', cause);
+  process.exitCode = 1;
+});

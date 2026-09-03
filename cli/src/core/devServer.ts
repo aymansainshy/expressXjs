@@ -1,10 +1,14 @@
-import path from 'path';
-import fs, { existsSync } from 'fs';
+import path from 'node:path';
+import fs, { existsSync } from 'node:fs';
 import chokidar, { FSWatcher } from 'chokidar';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess } from 'node:child_process';
 import { shouldIgnoreWatchPath } from '../constant/ignoreFiles';
-import { CachedFileMetadata, FileCache } from '../constant/scanInerfaces';
-import { ExpressXScanner } from '@expressxjs/core/scanner';
+import {
+  EXPRESSX_CACHE_VERSION,
+  ExpressXScanner,
+  type CachedFileMetadata,
+  type FileCache,
+} from '@expressxjs/core/scanner';
 import { frameworkLogo } from '../constant/appStarter';
 import { logger } from '../constant/logger';
 
@@ -20,6 +24,8 @@ export class DevServer {
   private isRestarting = false;
   private cache: FileCache | null = null;
   private restartTimeout: NodeJS.Timeout | null = null;
+  private restartKillTimeout: NodeJS.Timeout | null = null;
+  private isShuttingDown = false;
   private entry: string;
   private options: DevServerOptions;
 
@@ -41,6 +47,10 @@ export class DevServer {
 
     if (this.options.appFlags && this.options.appFlags.length > 0) {
       logger.info(`Application flags: ${this.options.appFlags.join(' ')}`, 'DevServer');
+    }
+
+    if (!this.runDoctor(this.entry)) {
+      throw new Error('ExpressX environment checks failed. Fix the reported issues and run the command again.');
     }
 
     await this.initializeCache();
@@ -88,7 +98,7 @@ export class DevServer {
       logger.info('No cache found, creating new cache...', '.expressx/cache.json');
 
       this.cache = {
-        version: '1.0.0',
+        version: EXPRESSX_CACHE_VERSION,
         decoratorFiles: [],
         totalScanned: 0,
         generatedAt: new Date().toISOString(),
@@ -210,15 +220,6 @@ export class DevServer {
       this.child = null;
     }
 
-    // Inside your CLI command handler
-    if (!this.runDoctor(this.entry)) {
-      logger.error('Environment checks failed - please fix the issues above', 'Doctor');
-      process.exit(1);
-    }
-
-    process.env.EXPRESSX_RUNTIME = 'ts';
-    process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-
     logger.info(`Starting application, Entry file: ${this.entry}`, 'Startup');
 
     // Build complete command array
@@ -239,18 +240,23 @@ export class DevServer {
       logger.debug(`App flags: ${this.options.appFlags.join(' ')}`, 'Startup');
     }
 
-    this.child = spawn('node', nodeArgs, {
+    const child = spawn('node', nodeArgs, {
       stdio: 'inherit',
-      env: process.env,
+      env: {
+        ...process.env,
+        EXPRESSX_RUNTIME: 'ts',
+        NODE_ENV: process.env.NODE_ENV || 'development',
+      },
       cwd: process.cwd(),
     });
+    this.child = child;
 
-    this.child.on('exit', (code, signal) => {
+    child.on('exit', (code, signal) => {
       // Clear the child reference when process exits
       const wasRestarting = this.isRestarting;
-      this.child = null; // Clear reference
+      if (this.child === child) this.child = null;
 
-      if (signal === 'SIGTERM' || wasRestarting) {
+      if (signal === 'SIGTERM' || signal === 'SIGKILL' || wasRestarting || this.isShuttingDown) {
         return;
       }
 
@@ -260,14 +266,22 @@ export class DevServer {
       }
     });
 
-    this.child.on('error', (err) => {
+    child.on('error', (err) => {
       logger.error(`Failed to start the application process: ${err.message}`, 'DevServer', err);
-      this.child = null; // Clear reference on spawn error
+      if (this.child === child) this.child = null;
     });
   }
 
   private runDoctor(entry: string): boolean {
     logger.info('ExpressXjs Doctor: Checking your environment...', 'Doctor');
+
+    let runtimeEntryAvailable = false;
+    try {
+      require.resolve('@expressxjs/core/runtime');
+      runtimeEntryAvailable = true;
+    } catch {
+      runtimeEntryAvailable = false;
+    }
 
     const checks = [
       {
@@ -282,7 +296,7 @@ export class DevServer {
       // },
       {
         name: 'Runtime Entry',
-        passed: !!require.resolve('@expressxjs/core/runtime'),
+        passed: runtimeEntryAvailable,
         error: '@expressxjs/core/runtime is not reachable.',
       },
     ];
@@ -329,7 +343,7 @@ export class DevServer {
   /**
    * Handle file changes
    */
-  private handleFileChange(filepath: string, action: string): void {
+  private handleFileChange(filepath: string, action: 'added' | 'changed' | 'deleted'): void {
     if (!this.cache) return;
 
     const relativePath = path.relative(process.cwd(), filepath).replace(/\\/g, '/');
@@ -389,30 +403,8 @@ export class DevServer {
     this.scheduleRestart();
   }
 
-  /**
-   * Check if file contains decorators - FIXED VERSION
-   */
   private checkForDecorators(filepath: string): boolean {
-    try {
-      const content = fs.readFileSync(filepath, 'utf-8');
-
-      // Fast-Path 2: Symbol check (instant)
-      if (!content.includes('@')) return false;
-
-      // Fast-Path 3: Decorator name substring (fast)
-      const decorators = ExpressXScanner['DECORATORS'] as string[];
-
-      return decorators.some((decorator) => {
-        // Quick substring check before regex
-        if (!content.includes(decorator)) return false;
-
-        const decoratorName = decorator.replace('@', '');
-        const pattern = new RegExp(`@${decoratorName}(\\s*\\(|\\s|$)`, 'm');
-        return pattern.test(content);
-      });
-    } catch {
-      return false;
-    }
+    return ExpressXScanner.fileContainsDecorators(filepath, true);
   }
 
   private scheduleRestart(): void {
@@ -426,54 +418,82 @@ export class DevServer {
   }
 
   private restart(): void {
-    if (this.isRestarting) return;
+    if (this.isRestarting || this.isShuttingDown) return;
 
     this.isRestarting = true;
     logger.info('Restarting application...', 'DevServer');
 
-    if (this.child && !this.child.killed) {
-      // Process is still alive - kill it gracefully
-      this.child.once('exit', () => {
+    const child = this.child;
+    if (child && this.isChildRunning(child)) {
+      const restartAfterExit = () => {
+        if (this.restartKillTimeout) {
+          clearTimeout(this.restartKillTimeout);
+          this.restartKillTimeout = null;
+        }
         this.isRestarting = false;
-        this.startApp();
-      });
-      this.child.kill('SIGTERM');
+        if (!this.isShuttingDown) this.startApp();
+      };
+      child.once('exit', restartAfterExit);
+      const signalSent = child.kill('SIGTERM');
+      if (!signalSent) {
+        child.off('exit', restartAfterExit);
+        this.isRestarting = false;
+        if (!this.isShuttingDown) this.startApp();
+        return;
+      }
+
+      this.restartKillTimeout = setTimeout(() => {
+        if (this.isChildRunning(child)) {
+          logger.warn('Application did not exit after SIGTERM - sending SIGKILL', 'DevServer');
+          child.kill('SIGKILL');
+        }
+      }, 2000);
     } else {
-      // Process already dead or doesn't exist - start immediately
       this.isRestarting = false;
-      this.startApp();
+      if (!this.isShuttingDown) this.startApp();
     }
   }
 
   private setupGracefulShutdown(): void {
-    const shutdown = (signal: string) => {
-      logger.warn(`Received ${signal} - shutting down gracefully...`, 'DevServer');
+    process.once('SIGINT', () => void this.shutdown('SIGINT'));
+    process.once('SIGTERM', () => void this.shutdown('SIGTERM'));
+  }
 
-      if (this.watcher) {
-        this.watcher.close();
-        logger.debug('File watcher closed', 'Watcher');
+  private async shutdown(signal: string): Promise<void> {
+    if (this.isShuttingDown) return;
+    this.isShuttingDown = true;
+    logger.warn(`Received ${signal} - shutting down gracefully`, 'DevServer');
+
+    if (this.restartTimeout) clearTimeout(this.restartTimeout);
+    if (this.restartKillTimeout) clearTimeout(this.restartKillTimeout);
+
+    await Promise.all([this.watcher?.close(), this.cacheWatcher?.close()]);
+    logger.debug('File watchers closed', 'Watcher');
+
+    const child = this.child;
+    if (!child || !this.isChildRunning(child)) return;
+
+    await new Promise<void>((resolve) => {
+      const forceKillTimeout = setTimeout(() => {
+        if (this.isChildRunning(child)) {
+          logger.warn('Application did not exit after SIGTERM - sending SIGKILL', 'DevServer');
+          child.kill('SIGKILL');
+        }
+      }, 2000);
+
+      child.once('exit', () => {
+        clearTimeout(forceKillTimeout);
+        resolve();
+      });
+
+      if (!child.kill('SIGTERM')) {
+        clearTimeout(forceKillTimeout);
+        resolve();
       }
+    });
+  }
 
-      if (this.cacheWatcher) {
-        this.cacheWatcher.close();
-        logger.debug('Cache watcher closed', 'Watcher');
-      }
-
-      if (this.child) {
-        this.child.kill('SIGTERM');
-        setTimeout(() => {
-          if (this.child && !this.child.killed) {
-            logger.warn('Application did not exit in time - sending SIGKILL', 'DevServer');
-            this.child.kill('SIGKILL');
-          }
-          process.exit(0);
-        }, 2000);
-      } else {
-        process.exit(0);
-      }
-    };
-
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
+  private isChildRunning(child: ChildProcess): boolean {
+    return child.exitCode === null && child.signalCode === null;
   }
 }

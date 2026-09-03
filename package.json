@@ -12,6 +12,7 @@
     "build": "npm run build --workspace=@expressxjs/core && npm run build --workspace=@expressxjs/cli",
     "build:core": "npm run build --workspace=@expressxjs/core",
     "build:cli": "npm run build --workspace=@expressxjs/cli",
+    "build:examples": "npm run build --workspace=examples",
     "format": "prettier --config .prettierrc --ignore-path .prettierignore --write .",
     "format:check": "prettier --config .prettierrc --ignore-path .prettierignore --check ."
   },

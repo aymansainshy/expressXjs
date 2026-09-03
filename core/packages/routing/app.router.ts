@@ -5,9 +5,7 @@ import {
   MIDDLEWARES_METADATA,
   PARAM_METADATA,
   ROUTES_METADATA,
-  VALIDATOR_METADATA,
   CONTROLLER_METADATA,
-  Options,
 } from '../common';
 
 import { runGuard } from '../base/guards/guards';
@@ -18,7 +16,7 @@ import { ExpressXContainer } from '../dicontainer';
 import { Singleton } from '../decorators/di';
 import { ParamType, RouteDefinition } from '../decorators';
 import { ControllerRegistry } from './controllers.register';
-import { GlobalInterceptorRegistry } from '../decorators/global-interceptors';
+import { ExpressXInterceptorConstructor, GlobalInterceptorRegistry } from '../decorators/global-interceptors';
 import { GLOBAL_EXCEPTION_HANDLER, STATUS_CODE_METADATA } from '../common/constants';
 import { logger } from '../logger/logger';
 import { ExceptionHandler } from '../base/exceptionHandler/exception-handler';
@@ -43,7 +41,7 @@ export class AppRouter {
     return this.exceptionHandler;
   }
 
-  public getRouter(options?: Options): Router {
+  public getRouter(): Router {
     const appRouter = Router();
     let registeredRoutes = 0;
 
@@ -67,12 +65,12 @@ export class AppRouter {
         const fullPath = basePath ? `${basePath}${routePath}` : routePath; // '/users/list-user', '//users/:id', etc.
 
         // Resolve Global interceptors
-        const globalInterceptorClasses: ExpressXInterceptor[] = GlobalInterceptorRegistry.getAll();
-        const globalInterceptors = globalInterceptorClasses.map((c: any) =>
-          ExpressXContainer.resolve<ExpressXInterceptor>(c),
+        const globalInterceptorClasses: ExpressXInterceptorConstructor[] = GlobalInterceptorRegistry.getAll();
+        const globalInterceptors = globalInterceptorClasses.map((interceptor) =>
+          ExpressXContainer.resolve<ExpressXInterceptor>(interceptor),
         );
 
-        // This will prepare and sort the pipeline (guards, validators, middlewares and route-specific interceptors)
+        // Prepare and sort guards, middleware, and route-specific interceptors.
         // based on priority and type, so we don't have to do it per request
         const pipelineMetaData = this.preparePipelineData(instance, handerName);
 
@@ -119,12 +117,12 @@ export class AppRouter {
             return resolved;
           };
 
-          // 2. Run Pipeline (Guards, Validators, Middlewares)
+          // 2. Run guards and middleware.
           const corePipeline = async (): Promise<any> => {
             try {
               // a. route interceptors wrap controller
               for (const step of pipeline) {
-                const runner: any = new step.cls(); // Use DI!
+                const runner: any = ExpressXContainer.resolve<any>(step.cls);
                 if (step.type === GUARDS_METADATA.toString()) {
                   logger.debug(`Running guard "${runner.constructor.name}"`, 'Guard');
                   const allowed = await runGuard(runner, req);
@@ -149,7 +147,7 @@ export class AppRouter {
                   req,
                   res,
                 },
-                routeInterceptors.map((i: any) => new i.cls()),
+                routeInterceptors.map((i: any) => ExpressXContainer.resolve<ExpressXInterceptor>(i.cls)),
                 async () => {
                   try {
                     logger.debug(`Invoking handler ${controller.name}.${handerName}()`, 'Request');
@@ -205,9 +203,10 @@ export class AppRouter {
    */
   private preparePipelineData(instance: any, handlerName: string) {
     const guards = Reflect.getMetadata(GUARDS_METADATA, instance, handlerName) || [];
-    // const validators = Reflect.getMetadata(VALIDATOR_METADATA, instance, handlerName) || [];
     const middlewares = Reflect.getMetadata(MIDDLEWARES_METADATA, instance, handlerName) || [];
-    const routeInterceptors = Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [];
+    const routeInterceptors = [...(Reflect.getMetadata(INTERCEPTOR_METADATA, instance, handlerName) || [])].sort(
+      (first, second) => first.priority - second.priority,
+    );
 
     const statusCode: number | undefined = Reflect.getMetadata(STATUS_CODE_METADATA, instance, handlerName);
 
@@ -216,7 +215,6 @@ export class AppRouter {
         ...g,
         type: GUARDS_METADATA.toString(),
       })),
-      // ...validators.map((v: any) => ({ ...v, type: VALIDATOR_METADATA.toString() })),
       ...middlewares.map((m: any) => ({
         ...m,
         type: MIDDLEWARES_METADATA.toString(),

@@ -13,6 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "expressx start",
     "build": "rm -rf dist && expressx build --verbose && tsc",
+    "build3": "expressx build --output build --verbose && tsc",
     "dev2": "NODE_ENV=development port=5000 nodemon src/index.ts",
     "start": "node dist/index.js",
     "build2": "tsc"

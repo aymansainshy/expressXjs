@@ -61,6 +61,11 @@
       "require": "./dist/dicontainer/index.js",
       "types": "./dist/dicontainer/index.d.ts"
     },
+    "./di-container": {
+      "import": "./dist/dicontainer/index.js",
+      "require": "./dist/dicontainer/index.js",
+      "types": "./dist/dicontainer/index.d.ts"
+    },
     "./error": {
       "import": "./dist/errors/index.js",
       "require": "./dist/errors/index.js",

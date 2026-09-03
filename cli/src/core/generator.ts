@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { ExpressXScanner, type ScanConfig } from '@expressxjs/core/scanner';
 import {
   ComponentType,
   componentDirectories,
@@ -10,7 +11,6 @@ import {
   typeAliases,
 } from '../constant/appComponents';
 import { logger } from '../constant/logger';
-import { ScanConfig } from '../constant/scanInerfaces';
 
 export interface GenerateOptions {
   dryRun?: boolean;
@@ -31,36 +31,7 @@ export class Generator {
   }
 
   public getConfig(): ScanConfig {
-    const pkgPath = path.join(process.cwd(), 'package.json');
-
-    if (!fs.existsSync(pkgPath)) {
-      throw new Error('package.json not found in current directory.');
-    }
-
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-
-    if (!pkg.expressx?.sourceDir) {
-      throw new Error(
-        'Missing "expressx.sourceDir" in package.json.\n\n' +
-          'Add this configuration:\n' +
-          JSON.stringify(
-            {
-              expressx: {
-                sourceDir: 'src',
-                outDir: 'dist',
-                main: 'src/index.ts',
-              },
-            },
-            null,
-            2,
-          ),
-      );
-    }
-
-    return {
-      sourceDir: pkg.expressx.sourceDir,
-      outDir: pkg.expressx.outDir || 'dist',
-    };
+    return ExpressXScanner.getConfig();
   }
 
   public generate(typeInput: string, name: string, customPath?: string, options: GenerateOptions = {}): void {
@@ -101,7 +72,7 @@ export class Generator {
     const context = createTemplateContext(type, name);
     const directory = customPath
       ? this.resolveProjectPath(customPath)
-      : path.join(process.cwd(), this.sourceDir, componentDirectories[type]);
+      : this.resolveProjectPath(path.join(this.sourceDir, componentDirectories[type]));
     const suffix = type === 'exception' ? 'exception-handler' : type;
 
     return {
@@ -114,7 +85,7 @@ export class Generator {
     const context = createTemplateContext('controller', name);
     const directory = customPath
       ? this.resolveProjectPath(customPath)
-      : path.join(process.cwd(), this.sourceDir, 'modules', context.routeName);
+      : this.resolveProjectPath(path.join(this.sourceDir, 'modules', context.routeName));
 
     return Object.entries(createResourceTemplates(name)).map(([fileName, content]) => ({
       path: path.join(directory, fileName),

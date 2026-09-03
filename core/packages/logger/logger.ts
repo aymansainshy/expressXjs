@@ -6,7 +6,7 @@ export enum LogLevel {
   ERROR = 'ERROR',
 }
 
-interface LoggerOptions {
+export interface LoggerOptions {
   enableTimestamp?: boolean;
   enableColors?: boolean;
   minLevel?: LogLevel;
@@ -70,8 +70,8 @@ export class ExpressXLogger {
   constructor(options: LoggerOptions = {}) {
     this.options = {
       enableTimestamp: options.enableTimestamp ?? true,
-      enableColors: options.enableColors ?? true,
-      minLevel: options.minLevel ?? LogLevel.DEBUG,
+      enableColors: options.enableColors ?? (!process.env.NO_COLOR && Boolean(process.stdout.isTTY)),
+      minLevel: options.minLevel ?? (process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG),
     };
   }
 
@@ -95,7 +95,7 @@ export class ExpressXLogger {
     this.log(LogLevel.ERROR, message, context);
 
     if (error instanceof Error) {
-      console.error(this.colorize(this.colors.dim + this.colors.red, `  ↳ ${error.message}`));
+      console.error(this.colorize(this.colors.dim + this.colors.red, `  Cause: ${error.message}`));
       if (error.stack) {
         const stackLines = error.stack.split('\n').slice(1);
         stackLines.forEach((line) => {
@@ -103,7 +103,7 @@ export class ExpressXLogger {
         });
       }
     } else if (typeof error === 'string') {
-      console.error(this.colorize(this.colors.dim + this.colors.red, `  ↳ ${error}`));
+      console.error(this.colorize(this.colors.dim + this.colors.red, `  Cause: ${error}`));
     }
   }
 
@@ -124,7 +124,7 @@ export class ExpressXLogger {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          hour12: false,
+          hourCycle: 'h23',
         })
         .replace(',', '');
       parts.push(this.colorize(this.colors.gray, timestamp));
@@ -144,12 +144,24 @@ export class ExpressXLogger {
     // Message
     parts.push(this.colorize(this.getMessageColor(level), message));
 
-    console.log(parts.join(' '));
+    const output = parts.join(' ');
+    if (level === LogLevel.ERROR) {
+      console.error(output);
+    } else if (level === LogLevel.WARN) {
+      console.warn(output);
+    } else {
+      console.log(output);
+    }
 
     // Metadata
     if (meta !== undefined) {
-      const metaStr = typeof meta === 'object' ? JSON.stringify(meta, null, 2) : String(meta);
-      console.log(this.colorize(this.colors.dim + this.colors.gray, `  ↳ ${metaStr}`));
+      let metaString: string;
+      try {
+        metaString = typeof meta === 'object' ? JSON.stringify(meta, null, 2) : String(meta);
+      } catch {
+        metaString = String(meta);
+      }
+      console.log(this.colorize(this.colors.dim + this.colors.gray, `  Metadata: ${metaString}`));
     }
   }
 

@@ -143,7 +143,6 @@ src/.expressx/
 .DS_Store
 `,
     '.env.example': `PORT=3000
-API_KEY=
 `,
     'src/application.ts': createApplicationTemplate(),
     'src/index.ts': createBootstrapTemplate(projectName, 'MyApplication'),
@@ -156,7 +155,6 @@ API_KEY=
   }
 
   if (template === 'full') {
-    files['src/common/guards/api-key.guard.ts'] = createGuardTemplate();
     files['src/common/middlewares/request-logger.middleware.ts'] = createMiddlewareTemplate();
     files['src/common/interceptors/timing.interceptor.ts'] = createInterceptorTemplate();
     files['src/common/interceptors/response-envelope.interceptor.ts'] = createGlobalInterceptorTemplate();
@@ -249,19 +247,6 @@ export class AppExceptionHandler extends ExceptionHandler {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     const statusCode = message.startsWith('Unauthorized') ? 401 : 500;
     return new HttpErrorResponse(statusCode, { message, statusCode });
-  }
-}
-`;
-}
-
-function createGuardTemplate(): string {
-  return `import { Guard, Request } from '@expressxjs/core';
-
-export class ApiKeyGuard extends Guard {
-  public canActivate(req: Request): boolean {
-    const configuredKey = process.env.API_KEY;
-    if (!configuredKey) return true;
-    return req.headers['x-api-key'] === configuredKey;
   }
 }
 `;

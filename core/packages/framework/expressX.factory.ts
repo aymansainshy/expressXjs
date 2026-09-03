@@ -1,12 +1,12 @@
 import { Kernel } from '../kernel';
-import { APP_TOKEN, Options } from '../common';
+import { APP_TOKEN } from '../common';
 import { MissingApplicationDecoratorError, RouteNotFoundError } from '../errors/framework-errors';
 import { ExpressX } from './expressX';
 import { AppRouter } from '../routing';
 import { ExpressXApp, NextFn, Request, Response } from '../framework/types';
 import { ExpressXContainer } from '../dicontainer';
 import { logger } from '../logger/logger';
-import { OnInitExpressXApp } from './onIniteSetup';
+import { OnInitExpressXApp } from './on-init-setup';
 import { lockExpressXApp } from './utils';
 import { ExceptionHandler } from '../errors';
 import { GlobalExceptionResponseHandler } from '../http/global.exception.response.handler';
@@ -16,7 +16,7 @@ export abstract class ExpressXFactory {
   /**
    * Framework-only app creation & wiring
    */
-  static async createApp<T extends ExpressX>(options?: Options): Promise<ExpressXApp> {
+  static async createApp<T extends ExpressX>(): Promise<ExpressXApp> {
     const bootTime = Date.now();
     logger.info('Bootstrapping ExpressX application...', 'Bootstrap');
 
@@ -33,11 +33,11 @@ export abstract class ExpressXFactory {
     }
 
     // 3. Resolution: Get the class instance
-    const expressXapplicaion = ExpressXContainer.resolve<ExpressX>(APP_TOKEN);
-    logger.debug(`Resolved application instance "${expressXapplicaion?.constructor?.name}"`, 'Bootstrap');
+    const expressXApplication = ExpressXContainer.resolve<ExpressX>(APP_TOKEN);
+    logger.debug(`Resolved application instance "${expressXApplication?.constructor?.name}"`, 'Bootstrap');
 
     // 4. Double Check Instance Type (Runtime Safety)
-    if (!(expressXapplicaion instanceof ExpressX)) {
+    if (!(expressXApplication instanceof ExpressX)) {
       const error = new Error('Resolved application does not inherit from ExpressX base class.');
       logger.error(error.message, 'Bootstrap', error);
       throw error;
@@ -45,16 +45,16 @@ export abstract class ExpressXFactory {
 
     // 5. Pre-Init (Async tasks like DB)
     logger.debug('Running preInit() hook...', 'Bootstrap');
-    await expressXapplicaion.preInit();
+    await expressXApplication.preInit();
 
     // 6. Initialization (User middlewares)
     logger.debug('Running onInit() hook...', 'Bootstrap');
-    await expressXapplicaion.onInit(new OnInitExpressXApp(xApp));
+    await expressXApplication.onInit(new OnInitExpressXApp(xApp));
 
     // 7. Routing
     logger.debug('Building application router...', 'Bootstrap');
     const appRouter: AppRouter = ExpressXContainer.resolve<AppRouter>(AppRouter);
-    xApp.use(appRouter.getRouter(options));
+    xApp.use(appRouter.getRouter());
 
     // 8. Handle 404s - Not Found
     xApp.use((req: Request, res: Response) => {
@@ -103,7 +103,7 @@ export abstract class ExpressXFactory {
 
     // 11. Final hook after everything is set up
     logger.debug('Running postInit() hook...', 'Bootstrap');
-    expressXapplicaion.postInit(xApp);
+    expressXApplication.postInit(xApp);
 
     logger.success(`Application bootstrapped in ${Date.now() - bootTime}ms`, 'Bootstrap');
     return xApp;

@@ -71,7 +71,7 @@ export class UserController {
     next: NextFn,
   ): Promise<HttpResponse | any> {
     try {
-      console.log('Handler Executed', ctx.req.body);
+      console.log('Handler Executed', (ctx.req as any).user);
       // throw new Error("This is a test error to demonstrate global exception handling");
       const userList: User[] = await this.userService.getUserLis();
       console.log(userList);
