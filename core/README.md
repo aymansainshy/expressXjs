@@ -232,30 +232,15 @@ interface CreateUserDto {
 @Controller('/users')
 export class UserController {
   @GET('/')
-  public findAll(): HttpResponse<
-    Array<{
-      id: string;
-      name: string;
-    }>
-  > {
-    return HttpResponse.ok([
-      {
-        id: '1',
-        name: 'Ada',
-      },
-    ]);
+  public findAll(): HttpResponse<Array<{ id: string; name: string }>> {
+    return HttpResponse.ok([{ id: '1', name: 'Ada' }]);
   }
 
   @POST('/')
   public create(
-    @Body()
-    body: CreateUserDto,
-    @Ctx()
-    ctx: HttpContext,
-  ): HttpResponse<{
-    id: string;
-    name: string;
-  }> {
+    @Body() body: CreateUserDto,
+    @Ctx() ctx: HttpContext,
+  ): HttpResponse<{ id: string; name: string }> {
     console.log('User agent:', ctx.req.headers['user-agent']);
     return HttpResponse.created({
       id: randomUUID(),
@@ -383,12 +368,8 @@ export class HealthController {
   @UseGuards(ApiKeyGuard)
   @UseMiddlewares(RequestLogger)
   @UseInterceptors(TimingInterceptor)
-  public check(): HttpResponse<{
-    status: string;
-  }> {
-    return HttpResponse.ok({
-      status: 'ok',
-    });
+  public check(): HttpResponse<{ status: string }> {
+    return HttpResponse.ok({ status: 'ok' });
   }
 }
 ```
@@ -413,7 +394,13 @@ A route interceptor therefore always wraps the controller after guards and middl
 Use `@UseGlobalInterceptor()` when an interceptor should run for every route. For example, this interceptor wraps successful `HttpResponse` values in a consistent response envelope:
 
 ```ts
-import { ExpressXInterceptor, Handler, HttpContext, HttpResponse, UseGlobalInterceptor } from '@expressxjs/core';
+import {
+  ExpressXInterceptor,
+  Handler,
+  HttpContext,
+  HttpResponse,
+  UseGlobalInterceptor,
+} from '@expressxjs/core';
 
 @UseGlobalInterceptor()
 export class ResponseEnvelopeInterceptor extends ExpressXInterceptor {

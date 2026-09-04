@@ -22,7 +22,7 @@ export class MyApplication extends ExpressX {
       });
   }
 
-  public postInit(app: any): void {
+  public postInit(app: ExpressXApp): void {
     console.log('Post-initialization logic here.');
     console.log('Setting up routes...');
   }
