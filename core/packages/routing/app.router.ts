@@ -83,85 +83,66 @@ export class AppRouter {
 
         (appRouter as any)[method](fullPath, async (req: Request, res: Response, next: NextFn) => {
           const { pipeline, routeInterceptors, paramMeta, statusCode } = pipelineMetaData;
-          const requestStart = Date.now();
 
           logger.debug(`Incoming [${req.method}] ${req.originalUrl} -> ${controller.name}.${handerName}()`, 'Request');
 
-          // Set once an error has been resolved into a response value, so the final
-          // status still reflects the error even when an interceptor flattens the
-          // HttpErrorResponse into a plain object.
-          let errorStatus: number | undefined;
-
-          // Hand the error to the global ExceptionHandler and return its result as a
-          // *value* instead of rethrowing, so it travels back up the interceptor chain
-          // and interceptors get to transform error responses like any other response.
-          const resolveError = async (err: any): Promise<any> => {
+          // Resolve an error only after it has unwound through the interceptor chain.
+          const resolveError = async (err: unknown): Promise<HttpErrorResponse> => {
             const exceptionHandler = this.getExceptionHandler();
             if (!exceptionHandler) {
               logger.debug('No global exception handler registered - delegating error to Express', 'ExceptionHandler');
-              throw err; // No handler registered - let Express handle it
+              throw err;
             }
 
             logger.error(
               `Error while handling [${req.method}] ${req.originalUrl} - delegating to "${exceptionHandler.constructor?.name}"`,
               'ExceptionHandler',
-              err,
+              err instanceof Error || typeof err === 'string' ? err : undefined,
             );
 
             const resolved = await exceptionHandler.catch(err);
-            errorStatus = resolved instanceof HttpErrorResponse ? resolved.statusCode : 500;
-            logger.debug(
-              `Exception resolved to status ${errorStatus} - returning it through the interceptor chain`,
-              'ExceptionHandler',
-            );
+            if (!(resolved instanceof HttpErrorResponse)) {
+              throw new TypeError('Global exception handler must return an HttpErrorResponse.');
+            }
+
             return resolved;
           };
 
           // 2. Run guards and middleware.
           const corePipeline = async (): Promise<any> => {
-            try {
-              // a. guards and middleware run in the order they were declared, sorted by priority
-              for (const step of pipeline) {
-                const runner: any = ExpressXContainer.resolve<any>(step.cls);
-                if (step.type === GUARDS_METADATA.toString()) {
-                  logger.debug(`Running guard "${runner.constructor.name}"`, 'Guard');
-                  const allowed = await runGuard(runner, req);
-                  const error = new Error(`Unauthorized: Guard ${runner.constructor.name} failed.`);
-                  if (!allowed) {
-                    logger.error(error.message, 'Guard', error);
-                    throw error;
-                  }
-                  logger.debug(`Guard "${runner.constructor.name}" passed`, 'Guard');
-                } else {
-                  logger.debug(`Running middleware "${runner.constructor.name}"`, 'Middleware');
-                  await runner.use({
-                    req,
-                    res,
-                  });
+            // a. guards and middleware run in the order they were declared, sorted by priority
+            for (const step of pipeline) {
+              const runner: any = ExpressXContainer.resolve<any>(step.cls);
+              if (step.type === GUARDS_METADATA.toString()) {
+                logger.debug(`Running guard "${runner.constructor.name}"`, 'Guard');
+                const allowed = await runGuard(runner, req);
+                const error = new Error(`Unauthorized: Guard ${runner.constructor.name} failed.`);
+                if (!allowed) {
+                  logger.error(error.message, 'Guard', error);
+                  throw error;
                 }
-              }
-
-              // b. route interceptors wrap controller
-              return await runInterceptors(
-                {
+                logger.debug(`Guard "${runner.constructor.name}" passed`, 'Guard');
+              } else {
+                logger.debug(`Running middleware "${runner.constructor.name}"`, 'Middleware');
+                await runner.use({
                   req,
                   res,
-                },
-                routeInterceptors.map((i: any) => ExpressXContainer.resolve<ExpressXInterceptor>(i.cls)),
-                async () => {
-                  try {
-                    logger.debug(`Invoking handler ${controller.name}.${handerName}()`, 'Request');
-                    return await this.callController(handler, paramMeta, req, res, next);
-                  } catch (err) {
-                    // Route interceptors see the error response too
-                    return await resolveError(err);
-                  }
-                },
-              );
-            } catch (err) {
-              // Guard / middleware / route-interceptor failures re-enter the global chain
-              return await resolveError(err);
+                });
+              }
             }
+
+            // b. route interceptors observe errors as they unwind from the controller.
+            return runInterceptors(
+              {
+                req,
+                res,
+              },
+              routeInterceptors.map((i: any) => ExpressXContainer.resolve<ExpressXInterceptor>(i.cls)),
+              async () => {
+                logger.debug(`Invoking handler ${controller.name}.${handerName}()`, 'Request');
+                return this.callController(handler, paramMeta, req, res, next);
+              },
+            );
           };
 
           try {
@@ -175,20 +156,14 @@ export class AppRouter {
               corePipeline,
             );
 
-            logger.debug(
-              `Completed [${req.method}] ${req.originalUrl} in ${Date.now() - requestStart}ms` +
-                `${errorStatus ? ` (resolved error, status ${errorStatus})` : ''}`,
-              'Request',
-            );
-
-            return HttpResponseHandler.handlerResponse(async () => result, res, next, errorStatus ?? statusCode);
+            return HttpResponseHandler.handlerResponse(async () => result, res, next, statusCode);
           } catch (err) {
-            logger.error(`Unresolved error for [${req.method}] ${req.originalUrl}`, 'Request', err as Error);
-            if (res.headersSent) {
-              logger.warn('Response headers already sent - delegating to Express error handler', 'Request');
-              return next(err);
+            try {
+              const errorResponse = await resolveError(err);
+              return HttpResponseHandler.handlerResponse(async () => errorResponse, res, next);
+            } catch (unresolvedError) {
+              return HttpResponseHandler.delegateUnknownErrorToExpressXHandler(unresolvedError, next);
             }
-            return HttpResponseHandler.handleError(err, next);
           }
         });
       });

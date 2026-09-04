@@ -1,6 +1,4 @@
-import { Ctx, HttpResponse, UseGlobalInterceptor } from '@expressxjs/core';
-import { ExpressXInterceptor, Handler } from '../../core/dist/base/interceptors/interceptors';
-import { HttpContext } from '../../core/dist/framework/types';
+import { ExpressXInterceptor, Handler, HttpContext, UseGlobalInterceptor } from '@expressxjs/core';
 
 @UseGlobalInterceptor()
 export class GlobalLogginInterceptor extends ExpressXInterceptor {
@@ -8,14 +6,6 @@ export class GlobalLogginInterceptor extends ExpressXInterceptor {
     console.log(' GlobalLogginInterceptor :::::::: Interceptor Executed -- Before ');
     const result = await callHandler.handle();
     console.log(' GlobalLogginInterceptor :::::::: Interceptor Executed -- After ');
-
-    if (result instanceof HttpResponse) {
-      return {
-        ok: true,
-        data: result.data,
-        traceId: ctx.req.ip,
-      };
-    }
 
     return {
       ok: true,

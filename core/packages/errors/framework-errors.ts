@@ -11,12 +11,3 @@ export class MissingApplicationDecoratorError extends Error {
     this.name = 'MissingApplicationDecoratorError';
   }
 }
-
-export class RouteNotFoundError extends Error {
-  public status: number;
-  constructor(method: string, path: string) {
-    super(`Route not found: [${method.toUpperCase()}] ${path}`);
-    this.name = 'NotFoundError';
-    this.status = 404;
-  }
-}

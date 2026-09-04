@@ -1,13 +1,10 @@
-import { UseGlobalExceptionHandler } from '@expressxjs/core';
-import { ExceptionHandler } from '@expressxjs/core';
-import { HttpErrorResponse } from '../../core/dist/http/http.error.response';
+import { ExceptionHandler, HttpErrorResponse, UseGlobalExceptionHandler } from '@expressxjs/core';
 
 @UseGlobalExceptionHandler()
 class AppExceptionHandler extends ExceptionHandler {
-  catch(error: any) {
-    // Implementation for handling exceptions
+  catch(error: unknown): HttpErrorResponse {
     return new HttpErrorResponse(400, {
-      message: 'An error occurred',
+      message: error instanceof Error ? error.message : 'An error occurred',
       details: error instanceof Error ? error.message : error,
     });
   }
