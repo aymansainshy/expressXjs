@@ -345,7 +345,18 @@ export class HealthController {
 }
 ```
 
-Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`.
+Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`. Priorities do not reorder the pipeline stages. Guards and middleware share one ascending-priority list and can be ordered against their own type or each other. Route-interceptor priorities are scoped only to route interceptors.
+
+```text
+Global interceptors: before
+  Guards + middleware (sorted together by ascending priority)
+    Route interceptors: before (sorted among themselves by ascending priority)
+      Controller
+    Route interceptors: after (reverse order)
+Global interceptors: after
+```
+
+A route interceptor therefore always wraps the controller after guards and middleware have passed. Its numeric priority cannot move it before either stage.
 
 ## Global interceptors
 
