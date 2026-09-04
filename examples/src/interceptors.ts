@@ -1,6 +1,4 @@
-import { Ctx, HttpErrorResponse, HttpResponse, UseGlobalInterceptor } from '@expressxjs/core';
-import { ExpressXInterceptor, Handler } from '../../core/dist/base/interceptors/interceptors';
-import { HttpContext } from '../../core/dist/framework/types';
+import { ExpressXInterceptor, Handler, HttpContext, UseGlobalInterceptor } from '@expressxjs/core';
 
 @UseGlobalInterceptor()
 export class GlobalLogginInterceptor extends ExpressXInterceptor {

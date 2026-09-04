@@ -443,8 +443,8 @@ export class AppExceptionHandler extends ExceptionHandler {
 
 Because this file contains `@UseGlobalExceptionHandler()`, the scanner discovers and registers it automatically.
 
-An exception handler may return any JSON-compatible value, just like a controller. Plain values are serialized with
-status `500`; return `HttpErrorResponse` when the handler needs to choose a different HTTP status.
+An exception handler must return an `HttpErrorResponse`, either directly or through a promise. This keeps the error
+status and response body explicit while supporting both synchronous and asynchronous handlers.
 
 ## Run and build
 

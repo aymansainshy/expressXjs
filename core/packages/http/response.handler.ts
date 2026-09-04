@@ -18,7 +18,7 @@ export class HttpResponseHandler {
         return;
       }
 
-      // If the result is an HttpResponse, we can use its status code and body.
+      // If the result is an HttpResponse, use its status code and data.
       if (result instanceof HttpResponse) {
         const resolvedStatusCode = result.code ?? controllerStatus;
         logger.debug(`Sending response with status ${resolvedStatusCode}`, 'Response');
@@ -30,11 +30,11 @@ export class HttpResponseHandler {
       // interceptor chain and no interceptor reshaped it.
       if (result instanceof HttpErrorResponse) {
         logger.debug(`Sending error response with status ${result.statusCode}`, 'Response');
-        res.status(result.statusCode || 500).json(result.error);
+        res.status(result.statusCode ?? 500).json(result.error);
         return;
       }
 
-      // If the result is a plain object, we can use the provided status code or default to 200.
+      // Plain values use the controller status code or default to 200.
       const finalStatusCode = controllerStatus ?? 200;
       logger.debug(`Sending response with status ${finalStatusCode}`, 'Response');
       res.status(finalStatusCode).json(result);

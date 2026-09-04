@@ -1,6 +1,5 @@
 import { NextFn, Request, Response } from './types';
 import { HttpErrorResponse } from '../http/http.error.response';
-import { HttpResponseHandler } from '../http/response.handler';
 import { handleFrameworkError, handleRouteNotFound } from './expressX.factory';
 
 describe('ExpressXFactory route fallback', () => {
@@ -14,25 +13,14 @@ describe('ExpressXFactory route fallback', () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     } as unknown as Response;
-    const next = jest.fn() as NextFn;
-    const responseHandler = jest.spyOn(HttpResponseHandler, 'handlerResponse');
+    handleRouteNotFound(req, res);
 
-    await handleRouteNotFound(req, res, next);
-
-    expect(responseHandler).toHaveBeenCalledWith(expect.any(Function), res, next);
-    const responseFactory = responseHandler.mock.calls[0][0];
-    await expect(responseFactory()).resolves.toEqual(
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith(
       new HttpErrorResponse(404, {
         message: 'Route not found: [GET] /missing',
       }),
     );
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({
-      message: 'Route not found: [GET] /missing',
-    });
-    expect(next).not.toHaveBeenCalled();
-
-    responseHandler.mockRestore();
   });
 
   it('wraps an unhandled error in an HttpErrorResponse before serializing it', async () => {
@@ -47,24 +35,16 @@ describe('ExpressXFactory route fallback', () => {
       json: jest.fn(),
     } as unknown as Response;
     const next = jest.fn() as NextFn;
-    const responseHandler = jest.spyOn(HttpResponseHandler, 'handlerResponse');
 
-    await handleFrameworkError(error, req, res, next);
+    handleFrameworkError(error, req, res, next);
 
-    expect(responseHandler).toHaveBeenCalledWith(expect.any(Function), res, next);
-    const responseFactory = responseHandler.mock.calls[0][0];
-    await expect(responseFactory()).resolves.toEqual(
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(
       new HttpErrorResponse(500, {
         message: 'Internal Server Error',
       }),
     );
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      message: 'Internal Server Error',
-    });
     expect(next).not.toHaveBeenCalled();
-
-    responseHandler.mockRestore();
   });
 
   it('preserves an HttpErrorResponse received by the fallback', async () => {
@@ -82,12 +62,30 @@ describe('ExpressXFactory route fallback', () => {
     } as unknown as Response;
     const next = jest.fn() as NextFn;
 
-    await handleFrameworkError(error, req, res, next);
+    handleFrameworkError(error, req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
-      message: 'Forbidden',
-    });
+    expect(res.json).toHaveBeenCalledWith(error);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('delegates to Express when response headers have already been sent', () => {
+    const error = new Error('Streaming failed');
+    const req = {
+      method: 'GET',
+      path: '/stream',
+    } as Request;
+    const res = {
+      headersSent: true,
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    } as unknown as Response;
+    const next = jest.fn() as NextFn;
+
+    handleFrameworkError(error, req, res, next);
+
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(error);
   });
 });

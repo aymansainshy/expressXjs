@@ -10,6 +10,39 @@ import { OnInitExpressXApp } from './on-init-setup';
 import { lockExpressXApp } from './utils';
 import { HttpErrorResponse } from '../http/http.error.response';
 
+export function handleRouteNotFound(req: Request, res: Response): void {
+  logger.warn(`No route matched [${req.method}] ${req.path}`, 'Router');
+
+  const errorResponse = new HttpErrorResponse(404, {
+    message: `Route not found: [${req.method.toUpperCase()}] ${req.path}`,
+  });
+
+  res.status(errorResponse.statusCode).json(errorResponse);
+}
+
+export function handleFrameworkError(err: any, req: Request, res: Response, next: NextFn): void {
+  if (res.headersSent) {
+    logger.warn('Response headers already sent - delegating error to Express', 'ErrorHandler');
+    next(err);
+    return;
+  }
+
+  logger.error(
+    `Framework error handler reached for [${req.method}] ${req.path}: ${err?.message ?? 'Unhandled error'}`,
+    'ErrorHandler',
+    err,
+  );
+
+  const errorResponse =
+    err instanceof HttpErrorResponse
+      ? err
+      : new HttpErrorResponse(err?.statusCode ?? err?.status ?? 500, {
+          message: 'Internal Server Error',
+        });
+
+  res.status(errorResponse.statusCode).json(errorResponse);
+}
+
 export abstract class ExpressXFactory {
   /**
    * Framework-only app creation & wiring
@@ -55,25 +88,10 @@ export abstract class ExpressXFactory {
     xApp.use(appRouter.getRouter());
 
     // 8. Handle 404s - Not Found
-    xApp.use((req: Request, res: Response, next: NextFn) => {
-      logger.warn(`No route matched [${req.method}] ${req.path}`, 'Router');
-      const error = new Error(`Route not found: [${req.method.toUpperCase()}] ${req.path}`);
-      const httpErrorResponse = new HttpErrorResponse(404, { message: error.message });
-      res.status(404).json(httpErrorResponse);
-    });
+    xApp.use(handleRouteNotFound);
 
     // 9. Framework fallback for errors that reach the Express error pipeline.
-    xApp.use((err: any, req: Request, res: Response, next: NextFn) => {
-      logger.error(
-        `Global error handler reached for [${req.method}] ${req.path}: ${err?.message ?? 'Unhandled error'}`,
-        'ErrorHandler',
-        err,
-      );
-      const httpErrorResponse = new HttpErrorResponse(err?.statusCode ?? err?.status ?? 500, {
-        message: err?.message ?? 'Internal Server Error',
-      });
-      res.status(httpErrorResponse.statusCode).json(httpErrorResponse);
-    });
+    xApp.use(handleFrameworkError);
 
     // 10. Lock down the app instance to prevent further modifications
     // Object.freeze(xApp);
