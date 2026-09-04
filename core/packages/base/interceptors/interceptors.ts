@@ -1,4 +1,3 @@
-import { Request, Response } from '../../framework';
 import { HttpContext } from '../../framework/types';
 import { logger } from '../../logger/logger';
 
@@ -6,11 +5,8 @@ export abstract class ExpressXInterceptor {
   abstract intercept(ctx: HttpContext, callHandler: Handler): Promise<any>;
 }
 
-export type DataTransform = (data: any) => any | Promise<any>;
-
 export interface Handler {
   handle(): Promise<any>;
-  getData(transform?: DataTransform): Promise<any>;
 }
 
 export async function runInterceptors(
@@ -18,10 +14,7 @@ export async function runInterceptors(
   interceptors: ExpressXInterceptor[],
   last: () => Promise<any>,
 ): Promise<any> {
-  let idx = -1;
-
-  const dispatch = async (): Promise<any> => {
-    idx++;
+  const dispatch = async (idx: number): Promise<any> => {
     if (idx >= interceptors.length) return last();
 
     const current = interceptors[idx];
@@ -30,23 +23,16 @@ export async function runInterceptors(
       'Interceptor',
     );
 
+    let downstream: Promise<any> | undefined;
     const callHandler: Handler = {
-      handle: () => dispatch(),
-      getData: async (transform) => {
-        const data = await dispatch();
-        return transform ? transform(data) : data;
+      handle: () => {
+        downstream ??= dispatch(idx + 1);
+        return downstream;
       },
     };
 
-    const out = await current.intercept(ctx, callHandler);
-    if (out === undefined) {
-      logger.debug(`Interceptor "${current.constructor.name}" returned no value - continuing the chain`, 'Interceptor');
-      return dispatch();
-    }
-
-    // Otherwise, the interceptor returned a final result (possibly transformed).
-    return out;
+    return current.intercept(ctx, callHandler);
   };
 
-  return dispatch();
+  return dispatch(0);
 }

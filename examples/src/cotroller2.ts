@@ -30,7 +30,7 @@ class User {
 
 @Injectable()
 export class UserService {
-  userList: User[] = [new User('ayman', 'password')];
+  userList: User[] = [new User('aymansss', 'password4525425')];
 
   public async createUser(username: string, password: string): Promise<User> {
     const newUser = new User(username, password);
@@ -50,7 +50,7 @@ export class LogService {
   }
 }
 
-@Controller('/users')
+@Controller('/userss')
 export class UserController {
   constructor(
     @Inject(UserService)
@@ -59,8 +59,6 @@ export class UserController {
 
   @GET('/')
   @UseGuards(JWTAuthGuard, 3)
-  @UseMiddlewares(LoggerMiddleware, LoggerMiddleware, 1)
-  @UseInterceptors(ResponseEnvelopeInterceptor)
   @StatusCode(200)
   public async getUsers(
     @Ctx()
