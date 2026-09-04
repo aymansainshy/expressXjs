@@ -109,6 +109,10 @@ export class AppRouter {
 
               const resolved = exceptionHandler.catch(err);
 
+              if (!(resolved instanceof HttpErrorResponse)) {
+                throw new TypeError('Global exception handler must return HttpErrorResponse');
+              }
+
               return resolved;
             } catch (err) {
               throw err; // Let ExpressX handle it
@@ -150,14 +154,14 @@ export class AppRouter {
                   try {
                     logger.debug(`Invoking handler ${controller.name}.${handerName}()`, 'Request');
                     return await this.callController(handler, paramMeta, req, res, next);
-                  } catch (err) {
+                  } catch (err: any) {
                     // Route interceptors see the error response too
                     // return await resolveError(err);
                     throw err; // Let the outer try/catch handle it and pass to resolveError
                   }
                 },
               );
-            } catch (err) {
+            } catch (err: any) {
               // Guard / middleware / route-interceptor failures re-enter the global chain
               // return await resolveError(err);
               throw err; // Let the outer try/catch handle it and pass to resolveError
