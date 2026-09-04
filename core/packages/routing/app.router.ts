@@ -87,34 +87,32 @@ export class AppRouter {
 
           logger.debug(`Incoming [${req.method}] ${req.originalUrl} -> ${controller.name}.${handerName}()`, 'Request');
 
-          // Set once an error has been resolved into a response value, so the final
-          // status still reflects the error even when an interceptor flattens the
-          // HttpErrorResponse into a plain object.
-          let errorStatus: number | undefined;
-
           // Hand the error to the global ExceptionHandler and return its result as a
           // *value* instead of rethrowing, so it travels back up the interceptor chain
           // and interceptors get to transform error responses like any other response.
           const resolveError = async (err: any): Promise<any> => {
             const exceptionHandler = this.getExceptionHandler();
-            if (!exceptionHandler) {
-              logger.debug('No global exception handler registered - delegating error to Express', 'ExceptionHandler');
-              throw err; // No handler registered - let Express handle it
+            try {
+              if (!exceptionHandler) {
+                logger.debug(
+                  'No global exception handler registered - delegating error to Express',
+                  'ExceptionHandler',
+                );
+                throw err; // No handler registered - let Express handle it
+              }
+
+              logger.error(
+                `Error while handling [${req.method}] ${req.originalUrl} - delegating to "${exceptionHandler.constructor?.name}"`,
+                'ExceptionHandler',
+                err,
+              );
+
+              const resolved = exceptionHandler.catch(err);
+
+              return resolved;
+            } catch (err) {
+              throw err; // Let ExpressX handle it
             }
-
-            logger.error(
-              `Error while handling [${req.method}] ${req.originalUrl} - delegating to "${exceptionHandler.constructor?.name}"`,
-              'ExceptionHandler',
-              err,
-            );
-
-            const resolved = await exceptionHandler.catch(err);
-            errorStatus = resolved instanceof HttpErrorResponse ? resolved.statusCode : 500;
-            logger.debug(
-              `Exception resolved to status ${errorStatus} - returning it through the interceptor chain`,
-              'ExceptionHandler',
-            );
-            return resolved;
           };
 
           // 2. Run guards and middleware.
@@ -154,13 +152,15 @@ export class AppRouter {
                     return await this.callController(handler, paramMeta, req, res, next);
                   } catch (err) {
                     // Route interceptors see the error response too
-                    return await resolveError(err);
+                    // return await resolveError(err);
+                    throw err; // Let the outer try/catch handle it and pass to resolveError
                   }
                 },
               );
             } catch (err) {
               // Guard / middleware / route-interceptor failures re-enter the global chain
-              return await resolveError(err);
+              // return await resolveError(err);
+              throw err; // Let the outer try/catch handle it and pass to resolveError
             }
           };
 
@@ -175,20 +175,11 @@ export class AppRouter {
               corePipeline,
             );
 
-            logger.debug(
-              `Completed [${req.method}] ${req.originalUrl} in ${Date.now() - requestStart}ms` +
-                `${errorStatus ? ` (resolved error, status ${errorStatus})` : ''}`,
-              'Request',
-            );
-
-            return HttpResponseHandler.handlerResponse(async () => result, res, next, errorStatus ?? statusCode);
-          } catch (err) {
-            logger.error(`Unresolved error for [${req.method}] ${req.originalUrl}`, 'Request', err as Error);
-            if (res.headersSent) {
-              logger.warn('Response headers already sent - delegating to Express error handler', 'Request');
-              return next(err);
-            }
-            return HttpResponseHandler.handleError(err, next);
+            return HttpResponseHandler.handlerResponse(async () => result, res, next, statusCode);
+          } catch (err: any) {
+            const error = await resolveError(err);
+            return HttpResponseHandler.handlerResponse(async () => error, res, next);
+            // return HttpResponseHandler.delegateUncatchedErrorsToExpressXHandler(err, next);
           }
         });
       });

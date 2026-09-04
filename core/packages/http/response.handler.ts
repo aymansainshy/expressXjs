@@ -8,37 +8,44 @@ export class HttpResponseHandler {
     fn: () => Promise<any>,
     res: Response,
     next: NextFn,
-    statusCode?: number,
+    controllerStatus?: number,
     redirectUrl?: string,
   ) {
     try {
-      const result: HttpResponse | any = await fn();
+      const result: HttpResponse | HttpErrorResponse | any = await fn();
       if (res.headersSent) {
         logger.warn('Response already sent - skipping serialization', 'Response');
         return;
       }
 
+      // If the result is an HttpResponse, we can use its status code and body.
+      if (result instanceof HttpResponse) {
+        const resolvedStatusCode = result.code ?? controllerStatus;
+        logger.debug(`Sending response with status ${resolvedStatusCode}`, 'Response');
+        res.status(resolvedStatusCode).json(result.data);
+        return;
+      }
+
       // An HttpErrorResponse reaches here when an error was resolved inside the
       // interceptor chain and no interceptor reshaped it.
-      const status =
-        result instanceof HttpResponse
-          ? result?.code
-          : result instanceof HttpErrorResponse
-            ? result?.statusCode
-            : statusCode || 200;
-      const data =
-        result instanceof HttpResponse ? result?.data : result instanceof HttpErrorResponse ? result?.error : result;
+      if (result instanceof HttpErrorResponse) {
+        logger.debug(`Sending error response with status ${result.statusCode}`, 'Response');
+        res.status(result.statusCode || 500).json(result.error);
+        return;
+      }
 
-      logger.debug(`Sending response with status ${status}`, 'Response');
-      res.status(status).json(data);
+      // If the result is a plain object, we can use the provided status code or default to 200.
+      const finalStatusCode = controllerStatus ?? 200;
+      logger.debug(`Sending response with status ${finalStatusCode}`, 'Response');
+      res.status(finalStatusCode).json(result);
     } catch (err) {
       logger.error('Failed to serialize the response', 'Response', err as Error);
-      this.handleError(err, next);
+      this.delegateUnknownErrorToExpressXHandler(err, next);
     }
   }
 
-  static handleError(err: any, next: NextFn) {
-    logger.debug('Passing error to the Express error handler', 'Response');
+  static delegateUnknownErrorToExpressXHandler(err: any, next: NextFn) {
+    logger.debug('Passing error to the ExpressX error handler', 'Response');
     next(err);
   }
 }

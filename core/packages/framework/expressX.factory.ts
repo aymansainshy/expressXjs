@@ -1,6 +1,6 @@
 import { Kernel } from '../kernel';
 import { APP_TOKEN } from '../common';
-import { MissingApplicationDecoratorError, RouteNotFoundError } from '../errors/framework-errors';
+import { MissingApplicationDecoratorError } from '../errors/framework-errors';
 import { ExpressX } from './expressX';
 import { AppRouter } from '../routing';
 import { ExpressXApp, NextFn, Request, Response } from '../framework/types';
@@ -8,9 +8,7 @@ import { ExpressXContainer } from '../dicontainer';
 import { logger } from '../logger/logger';
 import { OnInitExpressXApp } from './on-init-setup';
 import { lockExpressXApp } from './utils';
-import { ExceptionHandler } from '../errors';
-import { GlobalExceptionResponseHandler } from '../http/global.exception.response.handler';
-import { GLOBAL_EXCEPTION_HANDLER } from '../common/constants';
+import { HttpErrorResponse } from '../http/http.error.response';
 
 export abstract class ExpressXFactory {
   /**
@@ -57,44 +55,24 @@ export abstract class ExpressXFactory {
     xApp.use(appRouter.getRouter());
 
     // 8. Handle 404s - Not Found
-    xApp.use((req: Request, res: Response) => {
+    xApp.use((req: Request, res: Response, next: NextFn) => {
       logger.warn(`No route matched [${req.method}] ${req.path}`, 'Router');
-      throw new RouteNotFoundError(req.method, req.path);
+      const error = new Error(`Route not found: [${req.method.toUpperCase()}] ${req.path}`);
+      const httpErrorResponse = new HttpErrorResponse(404, { message: error.message });
+      res.status(404).json(httpErrorResponse);
     });
 
-    // 9. Global Error Handling - fallback for anything the route pipeline did not
-    // already resolve (404s, errors raised outside a route handler).
-    const globalErrorHandler: ExceptionHandler | null = ExpressXContainer.isRegistered(GLOBAL_EXCEPTION_HANDLER)
-      ? ExpressXContainer.resolve<ExceptionHandler>(GLOBAL_EXCEPTION_HANDLER)
-      : null;
-
-    if (globalErrorHandler) {
-      logger.debug(
-        `Global exception handler "${globalErrorHandler.constructor?.name}" registered as bootstrap fallback`,
-        'Bootstrap',
-      );
-    } else {
-      logger.warn('No @UseGlobalExceptionHandler registered - unhandled errors will return a generic 500', 'Bootstrap');
-    }
-
+    // 9. Framework fallback for errors that reach the Express error pipeline.
     xApp.use((err: any, req: Request, res: Response, next: NextFn) => {
-      // If the error thrown using NextFn() in route handlers, it will be caught here.
-      // If no global error handler is registered, log the error and return a generic 500 response.
-      logger.debug(`Fallback error handler reached for [${req.method}] ${req.path}`, 'ErrorHandler');
-
-      if (!globalErrorHandler) {
-        logger.error(err?.message ?? 'Unhandled error', 'ErrorHandler', err);
-        res.status(500).json({
-          message: 'Internal Server Error',
-        });
-        return;
-      }
-      GlobalExceptionResponseHandler.handleErrorResponse(globalErrorHandler, err, res).catch((error) => {
-        logger.error('Error in global error handler', 'ErrorHandler', error);
-        res.status(500).json({
-          message: 'Internal Server Error',
-        });
+      logger.error(
+        `Global error handler reached for [${req.method}] ${req.path}: ${err?.message ?? 'Unhandled error'}`,
+        'ErrorHandler',
+        err,
+      );
+      const httpErrorResponse = new HttpErrorResponse(err?.statusCode ?? err?.status ?? 500, {
+        message: err?.message ?? 'Internal Server Error',
       });
+      res.status(httpErrorResponse.statusCode).json(httpErrorResponse);
     });
 
     // 10. Lock down the app instance to prevent further modifications
