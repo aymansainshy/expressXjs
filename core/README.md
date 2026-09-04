@@ -258,6 +258,43 @@ export class UserController {
 
 Available route decorators are `@GET()`, `@POST()`, `@PUT()`, `@PATCH()`, and `@DELETE()`.
 
+Controller handlers support these response styles:
+
+```ts
+import { Controller, Ctx, GET, HttpContext, HttpResponse, StatusCode } from '@expressxjs/core';
+
+@Controller('/response-examples')
+export class ResponseExamplesController {
+  private readonly userList = [{ id: '1', name: 'Ada' }];
+
+  // 1. Framework response: explicit status and body.
+  @GET('/framework')
+  public frameworkResponse() {
+    return HttpResponse.ok(this.userList);
+    // Equivalent builder form:
+    // return new HttpResponse().status(200).body(this.userList);
+  }
+
+  // 2. Plain JSON-compatible value: @StatusCode wins, or status 200 by default.
+  @GET('/plain')
+  @StatusCode(200)
+  public plainResponse() {
+    return { message: 'Users retrieved successfully', data: this.userList };
+  }
+
+  // 3. Direct Express response through @Ctx(): automatic serialization is skipped.
+  @GET('/direct')
+  public directResponse(@Ctx() ctx: HttpContext): void {
+    ctx.res.status(200).json({
+      message: 'Users retrieved successfully',
+      data: this.userList,
+    });
+  }
+}
+```
+
+An expected failure may be returned as `new HttpErrorResponse(statusCode, error)` without throwing. A returned `HttpResponse` or `HttpErrorResponse` supplies its own status and takes precedence over `@StatusCode`. For a direct Express response, `headersSent` prevents ExpressX from serializing a second response; do not also return another response body from that code path.
+
 ## Dependency injection
 
 Mark services as injectable and request them through constructor injection:
