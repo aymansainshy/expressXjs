@@ -120,7 +120,7 @@ export class AppRouter {
           // 2. Run guards and middleware.
           const corePipeline = async (): Promise<any> => {
             try {
-              // a. route interceptors wrap controller
+              // a. guards and middleware run in the order they were declared, sorted by priority
               for (const step of pipeline) {
                 const runner: any = ExpressXContainer.resolve<any>(step.cls);
                 if (step.type === GUARDS_METADATA.toString()) {
