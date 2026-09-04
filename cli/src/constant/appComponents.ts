@@ -206,8 +206,7 @@ export class ${className} extends ExpressX {
   }
 
   public async onInit(app: OnInitExpressXApp): Promise<void> {
-    // Register application-level middleware here.
-    void app;
+    app.useExpressJson().useUrlencoded({ extended: true });
   }
 
   public postInit(app: ExpressXApp): void {

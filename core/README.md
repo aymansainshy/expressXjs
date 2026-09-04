@@ -163,11 +163,10 @@ Treat both files as generated artifacts:
 
 ## Create an application
 
-Define the application lifecycle in `src/application.ts`. Register ordinary Express middleware during `onInit`:
+Define the application lifecycle in `src/application.ts`. Register common middleware with the fluent helpers and arbitrary Express request handlers with `use()` during `onInit`:
 
 ```ts
 import { Application, ExpressX, ExpressXApp, OnInitExpressXApp } from '@expressxjs/core';
-import express from 'express';
 
 @Application()
 export class MyApplication extends ExpressX {
@@ -176,7 +175,15 @@ export class MyApplication extends ExpressX {
   }
 
   public async onInit(app: OnInitExpressXApp): Promise<void> {
-    app.use(express.json());
+    app
+      .useExpressJson({ limit: '1mb' })
+      .useHelmet()
+      .useUrlencoded({ extended: true })
+      .useCors({ origin: 'https://example.com' })
+      .use((req, _res, next) => {
+        console.log(req.method, req.originalUrl);
+        next();
+      });
   }
 
   public postInit(app: ExpressXApp): void {
@@ -185,6 +192,8 @@ export class MyApplication extends ExpressX {
   }
 }
 ```
+
+All four helpers are chainable and accept an optional, strongly typed options object. `useExpressJson()` and `useUrlencoded()` wrap Express's built-in parsers; `useHelmet()` and `useCors()` use the Helmet and CORS middleware bundled with Core. Use `use()` for any other standard Express request handler.
 
 Bootstrap the HTTP server in `src/index.ts`:
 

@@ -181,7 +181,6 @@ function createApplicationTemplate(): string {
   ExpressXLogger,
   OnInitExpressXApp,
 } from '@expressxjs/core';
-import express from 'express';
 
 const logger = new ExpressXLogger();
 
@@ -192,8 +191,7 @@ export class MyApplication extends ExpressX {
   }
 
   public async onInit(app: OnInitExpressXApp): Promise<void> {
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
+    app.useExpressJson().useUrlencoded({ extended: true });
   }
 
   public postInit(app: ExpressXApp): void {

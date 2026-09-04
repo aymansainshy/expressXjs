@@ -20,7 +20,7 @@ export class HttpResponseHandler {
 
       // If the result is an HttpResponse, use its status code and data.
       if (result instanceof HttpResponse) {
-        const resolvedStatusCode = result.code ?? controllerStatus;
+        const resolvedStatusCode = result.statusCode ?? controllerStatus;
         logger.debug(`Sending response with status ${resolvedStatusCode}`, 'Response');
         res.status(resolvedStatusCode).json(result.data);
         return;

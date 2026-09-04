@@ -103,6 +103,23 @@ test(
 );
 
 test(
+  'generated applications use the built-in body parser helpers',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      new Generator().generate('application', 'api');
+      const filePath = path.join(workspace, 'src/api.application.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+
+      assert.match(content, /app\.useExpressJson\(\)\.useUrlencoded\(\{ extended: true \}\);/);
+    });
+  },
+);
+
+test(
   'rejects component names that cannot form TypeScript identifiers',
   {
     concurrency: false,
@@ -143,6 +160,9 @@ test(
       const bootstrap = fs.readFileSync(path.join(projectPath, 'src/index.ts'), 'utf-8');
       assert.match(bootstrap, /import \{ MyApplication \} from '\.\/application';/);
       assert.match(bootstrap, /ExpressXFactory\.createApp<MyApplication>\(\)/);
+      const application = fs.readFileSync(path.join(projectPath, 'src/application.ts'), 'utf-8');
+      assert.match(application, /app\.useExpressJson\(\)\.useUrlencoded\(\{ extended: true \}\);/);
+      assert.doesNotMatch(application, /import express from 'express'/);
       const controller = fs.readFileSync(path.join(projectPath, 'src/modules/users/user.controller.ts'), 'utf-8');
       assert.doesNotMatch(controller, /ApiKeyGuard|UseGuards/);
       const middleware = fs.readFileSync(

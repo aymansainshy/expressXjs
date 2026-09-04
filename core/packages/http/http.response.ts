@@ -1,6 +1,6 @@
 export class HttpResponse<T = any> {
   constructor(
-    public code: number = 200,
+    public statusCode: number = 200,
     public data?: T,
   ) {}
 
@@ -22,8 +22,8 @@ export class HttpResponse<T = any> {
   //   return response;
   // }
 
-  status(code: number): this {
-    this.code = code;
+  status(statusCode: number): this {
+    this.statusCode = statusCode;
     return this;
   }
 
