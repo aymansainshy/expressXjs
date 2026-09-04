@@ -1,6 +1,6 @@
 {
   "name": "@expressxjs/cli",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "type": "commonjs",
@@ -21,7 +21,7 @@
   "license": "MIT",
   "description": "A CLI tool for ExpressXjs framework",
   "dependencies": {
-    "@expressxjs/core": "0.0.6",
+    "@expressxjs/core": "0.0.7",
     "@types/node": "^20.0.0",
     "chokidar": "^4.0.3",
     "commander": "^11.1.0",
