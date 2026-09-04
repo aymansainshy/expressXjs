@@ -83,6 +83,7 @@ export class AppRouter {
 
         (appRouter as any)[method](fullPath, async (req: Request, res: Response, next: NextFn) => {
           const { pipeline, routeInterceptors, paramMeta, statusCode } = pipelineMetaData;
+          let middlewareStopped = false;
 
           logger.debug(`Incoming [${req.method}] ${req.originalUrl} -> ${controller.name}.${handerName}()`, 'Request');
 
@@ -110,8 +111,25 @@ export class AppRouter {
 
           // 2. Run guards and middleware.
           const corePipeline = async (): Promise<any> => {
-            // a. guards and middleware run in the order they were declared, sorted by priority
-            for (const step of pipeline) {
+            const runControllerPipeline = () =>
+              runInterceptors(
+                {
+                  req,
+                  res,
+                },
+                routeInterceptors.map((i: any) => ExpressXContainer.resolve<ExpressXInterceptor>(i.cls)),
+                async () => {
+                  logger.debug(`Invoking handler ${controller.name}.${handerName}()`, 'Request');
+                  return this.callController(handler, paramMeta, req, res, next);
+                },
+              );
+
+            // a. Guards continue automatically. Middleware must call next() to
+            // dispatch the next priority-sorted step.
+            const dispatch = async (index: number): Promise<any> => {
+              if (index >= pipeline.length) return runControllerPipeline();
+
+              const step = pipeline[index];
               const runner: any = ExpressXContainer.resolve<any>(step.cls);
               if (step.type === GUARDS_METADATA.toString()) {
                 logger.debug(`Running guard "${runner.constructor.name}"`, 'Guard');
@@ -122,27 +140,46 @@ export class AppRouter {
                   throw error;
                 }
                 logger.debug(`Guard "${runner.constructor.name}" passed`, 'Guard');
-              } else {
-                logger.debug(`Running middleware "${runner.constructor.name}"`, 'Middleware');
-                await runner.use({
+                return dispatch(index + 1);
+              }
+
+              logger.debug(`Running middleware "${runner.constructor.name}"`, 'Middleware');
+              let nextCalled = false;
+              let downstream: Promise<any> | undefined;
+              const middlewareNext: NextFn = (error?: any) => {
+                if (nextCalled) return;
+                nextCalled = true;
+
+                if (error) {
+                  middlewareStopped = true;
+                  next(error);
+                  return;
+                }
+
+                downstream = dispatch(index + 1);
+              };
+
+              await runner.use(
+                {
                   req,
                   res,
-                });
-              }
-            }
+                },
+                middlewareNext,
+              );
 
-            // b. route interceptors observe errors as they unwind from the controller.
-            return runInterceptors(
-              {
-                req,
-                res,
-              },
-              routeInterceptors.map((i: any) => ExpressXContainer.resolve<ExpressXInterceptor>(i.cls)),
-              async () => {
-                logger.debug(`Invoking handler ${controller.name}.${handerName}()`, 'Request');
-                return this.callController(handler, paramMeta, req, res, next);
-              },
-            );
+              if (!nextCalled) {
+                middlewareStopped = true;
+                logger.debug(
+                  `Middleware "${runner.constructor.name}" stopped the pipeline without calling next()`,
+                  'Middleware',
+                );
+                return undefined;
+              }
+
+              return downstream;
+            };
+
+            return dispatch(0);
           };
 
           try {
@@ -156,6 +193,7 @@ export class AppRouter {
               corePipeline,
             );
 
+            if (middlewareStopped) return;
             return HttpResponseHandler.handlerResponse(async () => result, res, next, statusCode);
           } catch (err) {
             try {

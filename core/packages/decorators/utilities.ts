@@ -5,14 +5,14 @@ export interface PrioritizedClass<T = object> {
   priority: number;
 }
 
-export function pushWithPriority<T>(
+export function pushManyWithPriority<T>(
   target: object,
   key: string | symbol,
   metadataKey: symbol,
-  component: PrioritizedClass<T>,
+  components: PrioritizedClass<T>[],
 ): void {
   const existing = (Reflect.getMetadata(metadataKey, target, key) || []) as PrioritizedClass<T>[];
-  Reflect.defineMetadata(metadataKey, [component, ...existing], target, key);
+  Reflect.defineMetadata(metadataKey, [...components, ...existing], target, key);
 }
 
 export function parseArgs<T>(args: unknown[], defaultPriority: number): PrioritizedClass<T>[] {

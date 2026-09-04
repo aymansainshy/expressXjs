@@ -124,13 +124,15 @@ export class ${className} {
   ExpressXLogger,
   ExpressXMiddleware,
   HttpContext,
+  NextFn,
 } from '@expressxjs/core';
 
 const logger = new ExpressXLogger();
 
 export class ${className} extends ExpressXMiddleware {
-  public use(ctx: HttpContext): void {
+  public use(ctx: HttpContext, next: NextFn): void {
     logger.info(\`[\${ctx.req.method}] \${ctx.req.originalUrl}\`, '${className}');
+    next();
   }
 }
 `,
@@ -204,8 +206,7 @@ export class ${className} extends ExpressX {
   }
 
   public async onInit(app: OnInitExpressXApp): Promise<void> {
-    // Register application-level middleware here.
-    void app;
+    app.useExpressJson().useUrlencoded({ extended: true });
   }
 
   public postInit(app: ExpressXApp): void {

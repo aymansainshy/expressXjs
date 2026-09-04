@@ -163,11 +163,10 @@ Treat both files as generated artifacts:
 
 ## Create an application
 
-Define the application lifecycle in `src/application.ts`. Register ordinary Express middleware during `onInit`:
+Define the application lifecycle in `src/application.ts`. Register common middleware with the fluent helpers and arbitrary Express request handlers with `use()` during `onInit`:
 
 ```ts
 import { Application, ExpressX, ExpressXApp, OnInitExpressXApp } from '@expressxjs/core';
-import express from 'express';
 
 @Application()
 export class MyApplication extends ExpressX {
@@ -176,7 +175,15 @@ export class MyApplication extends ExpressX {
   }
 
   public async onInit(app: OnInitExpressXApp): Promise<void> {
-    app.use(express.json());
+    app
+      .useExpressJson({ limit: '1mb' })
+      .useHelmet()
+      .useUrlencoded({ extended: true })
+      .useCors({ origin: 'https://example.com' })
+      .use((req, _res, next) => {
+        console.log(req.method, req.originalUrl);
+        next();
+      });
   }
 
   public postInit(app: ExpressXApp): void {
@@ -185,6 +192,8 @@ export class MyApplication extends ExpressX {
   }
 }
 ```
+
+All four helpers are chainable and accept an optional, strongly typed options object. `useExpressJson()` and `useUrlencoded()` wrap Express's built-in parsers; `useHelmet()` and `useCors()` use the Helmet and CORS middleware bundled with Core. Use `use()` for any other standard Express request handler.
 
 Bootstrap the HTTP server in `src/index.ts`:
 
@@ -339,6 +348,7 @@ import {
   Handler,
   HttpContext,
   HttpResponse,
+  NextFn,
   Request,
   UseGuards,
   UseInterceptors,
@@ -352,8 +362,9 @@ class ApiKeyGuard extends Guard {
 }
 
 class RequestLogger extends ExpressXMiddleware {
-  public use(ctx: HttpContext): void {
+  public use(ctx: HttpContext, next: NextFn): void {
     console.log(ctx.req.method, ctx.req.originalUrl);
+    next();
   }
 }
 
@@ -382,7 +393,9 @@ export class HealthController {
 }
 ```
 
-Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`. Priorities do not reorder the pipeline stages. Guards and middleware share one ascending-priority list and can be ordered against their own type or each other. Route-interceptor priorities are scoped only to route interceptors.
+Every route middleware must call `next()` to continue to the next guard, middleware, route interceptor, or controller. Omitting `next()` stops the remaining route pipeline and skips automatic response serialization, so the middleware should send a response itself when it short-circuits. The callback uses the exported Express `NextFn` type: call `next()` without returning it, or call `next(error)` to delegate to the mounted Express error pipeline. Thrown errors continue through ExpressX's interceptor and application exception-handler flow.
+
+Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`. Priorities do not reorder the pipeline stages. Guards and middleware share one ascending-priority list and can be ordered against their own type or each other. Route-interceptor priorities are scoped only to route interceptors. Classes listed in the same decorator call keep their written order when they share a priority.
 
 ```text
 Global interceptors: before

@@ -3,9 +3,9 @@ import { ExceptionHandler, HttpErrorResponse, UseGlobalExceptionHandler } from '
 @UseGlobalExceptionHandler()
 class AppExceptionHandler extends ExceptionHandler {
   catch(error: unknown): HttpErrorResponse {
-    return new HttpErrorResponse(400, {
+    return new HttpErrorResponse().status(400).errorBody({
       message: error instanceof Error ? error.message : 'An error occurred',
-      details: error instanceof Error ? error.message : error,
+      details: error instanceof Error ? error?.stack : 'No stack trace available',
     });
   }
 }

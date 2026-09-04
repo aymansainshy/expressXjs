@@ -1,5 +1,5 @@
 import { INTERCEPTOR_METADATA } from '../common';
-import { parseArgs, pushWithPriority } from './utilities';
+import { parseArgs, pushManyWithPriority } from './utilities';
 import { logger } from '../logger/logger';
 
 export function UseInterceptors(...args: unknown[]): MethodDecorator {
@@ -10,6 +10,6 @@ export function UseInterceptors(...args: unknown[]): MethodDecorator {
         `in method "${key as string}" of class "${target.constructor.name}"`,
       'Decorator',
     );
-    components.forEach((component) => pushWithPriority(target, key, INTERCEPTOR_METADATA, component));
+    pushManyWithPriority(target, key, INTERCEPTOR_METADATA, components);
   };
 }

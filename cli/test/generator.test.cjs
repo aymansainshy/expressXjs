@@ -83,6 +83,43 @@ test(
 );
 
 test(
+  'generated middleware explicitly continues the route pipeline',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      new Generator().generate('middleware', 'request-logger');
+      const filePath = path.join(workspace, 'src/middlewares/request-logger.middleware.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+
+      assert.match(content, /NextFn/);
+      assert.match(content, /use\(ctx: HttpContext, next: NextFn\)/);
+      assert.match(content, /next\(\);/);
+      assert.doesNotMatch(content, /return next\(\);/);
+    });
+  },
+);
+
+test(
+  'generated applications use the built-in body parser helpers',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      new Generator().generate('application', 'api');
+      const filePath = path.join(workspace, 'src/api.application.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+
+      assert.match(content, /app\.useExpressJson\(\)\.useUrlencoded\(\{ extended: true \}\);/);
+    });
+  },
+);
+
+test(
   'rejects component names that cannot form TypeScript identifiers',
   {
     concurrency: false,
@@ -123,8 +160,18 @@ test(
       const bootstrap = fs.readFileSync(path.join(projectPath, 'src/index.ts'), 'utf-8');
       assert.match(bootstrap, /import \{ MyApplication \} from '\.\/application';/);
       assert.match(bootstrap, /ExpressXFactory\.createApp<MyApplication>\(\)/);
+      const application = fs.readFileSync(path.join(projectPath, 'src/application.ts'), 'utf-8');
+      assert.match(application, /app\.useExpressJson\(\)\.useUrlencoded\(\{ extended: true \}\);/);
+      assert.doesNotMatch(application, /import express from 'express'/);
       const controller = fs.readFileSync(path.join(projectPath, 'src/modules/users/user.controller.ts'), 'utf-8');
       assert.doesNotMatch(controller, /ApiKeyGuard|UseGuards/);
+      const middleware = fs.readFileSync(
+        path.join(projectPath, 'src/common/middlewares/request-logger.middleware.ts'),
+        'utf-8',
+      );
+      assert.match(middleware, /use\(ctx: HttpContext, next: NextFn\)/);
+      assert.match(middleware, /next\(\);/);
+      assert.doesNotMatch(middleware, /return next\(\);/);
     });
   },
 );

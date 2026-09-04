@@ -1,4 +1,4 @@
-import { Application, ExpressXApp, OnInitExpressXApp } from '@expressxjs/core';
+import { Application, ExpressXApp, NextFn, OnInitExpressXApp, Request, Response } from '@expressxjs/core';
 import { ExpressX, ExpressXFactory } from '@expressxjs/core';
 import { createServer } from 'http';
 import { parseArgs } from 'util';
@@ -11,10 +11,15 @@ export class MyApplication extends ExpressX {
   }
 
   public async onInit(app: OnInitExpressXApp): Promise<void> {
-    app.use((req: any, res: any, next: any) => {
-      console.log(`Initialization [${req.method}] ${req.path}`);
-      next();
-    });
+    app
+      .useExpressJson()
+      .useHelmet()
+      .useUrlencoded({ extended: true })
+      .useCors()
+      .use((req: Request, _res: Response, next: NextFn) => {
+        console.log(`Initialization [${req.method}] ${req.path}`);
+        next();
+      });
   }
 
   public postInit(app: any): void {

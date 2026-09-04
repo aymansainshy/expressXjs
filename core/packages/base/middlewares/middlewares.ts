@@ -1,5 +1,5 @@
-import { HttpContext } from '../../framework/types';
+import { HttpContext, NextFn } from '../../framework/types';
 
 export abstract class ExpressXMiddleware {
-  abstract use(ctx: HttpContext): Promise<void> | void;
+  abstract use(ctx: HttpContext, next: NextFn): Promise<void> | void;
 }
