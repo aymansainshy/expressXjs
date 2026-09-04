@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '../common';
 import { logger } from '../logger/logger';
-import { parseArgs, pushWithPriority } from './utilities';
+import { parseArgs, pushManyWithPriority } from './utilities';
 
 export function UseGuards(...args: unknown[]): MethodDecorator {
   return (target: Object, key: string | symbol) => {
@@ -10,6 +10,6 @@ export function UseGuards(...args: unknown[]): MethodDecorator {
         `in method "${key as string}" of class "${target.constructor.name}"`,
       'Decorator',
     );
-    components.forEach((component) => pushWithPriority(target, key, GUARDS_METADATA, component));
+    pushManyWithPriority(target, key, GUARDS_METADATA, components);
   };
 }

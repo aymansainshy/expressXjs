@@ -83,6 +83,26 @@ test(
 );
 
 test(
+  'generated middleware explicitly continues the route pipeline',
+  {
+    concurrency: false,
+  },
+  () => {
+    const workspace = createWorkspace();
+    inDirectory(workspace, () => {
+      new Generator().generate('middleware', 'request-logger');
+      const filePath = path.join(workspace, 'src/middlewares/request-logger.middleware.ts');
+      const content = fs.readFileSync(filePath, 'utf-8');
+
+      assert.match(content, /NextFn/);
+      assert.match(content, /use\(ctx: HttpContext, next: NextFn\)/);
+      assert.match(content, /next\(\);/);
+      assert.doesNotMatch(content, /return next\(\);/);
+    });
+  },
+);
+
+test(
   'rejects component names that cannot form TypeScript identifiers',
   {
     concurrency: false,
@@ -125,6 +145,13 @@ test(
       assert.match(bootstrap, /ExpressXFactory\.createApp<MyApplication>\(\)/);
       const controller = fs.readFileSync(path.join(projectPath, 'src/modules/users/user.controller.ts'), 'utf-8');
       assert.doesNotMatch(controller, /ApiKeyGuard|UseGuards/);
+      const middleware = fs.readFileSync(
+        path.join(projectPath, 'src/common/middlewares/request-logger.middleware.ts'),
+        'utf-8',
+      );
+      assert.match(middleware, /use\(ctx: HttpContext, next: NextFn\)/);
+      assert.match(middleware, /next\(\);/);
+      assert.doesNotMatch(middleware, /return next\(\);/);
     });
   },
 );

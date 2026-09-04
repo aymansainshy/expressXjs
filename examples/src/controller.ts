@@ -16,8 +16,8 @@ import {
 } from '@expressxjs/core';
 import { HttpResponse } from '@expressxjs/core';
 import { ResponseEnvelopeInterceptor } from './interceptors';
-import { JWTAuthGuard } from './auth.guard';
-import { LoggerMiddleware } from './middlewares';
+import { JWTAuthGuard, JWTAuthGuard2 } from './auth.guard';
+import { AuthMiddleware, LoggerMiddleware } from './middlewares';
 
 class User {
   username: string;
@@ -58,9 +58,11 @@ export class UserController {
   ) {}
 
   @GET('/')
-  @UseGuards(JWTAuthGuard, 3)
-  @UseMiddlewares(LoggerMiddleware, LoggerMiddleware, 1)
+  @UseGuards(JWTAuthGuard)
+  @UseMiddlewares(LoggerMiddleware, 3)
   @UseInterceptors(ResponseEnvelopeInterceptor)
+  @UseMiddlewares(LoggerMiddleware, AuthMiddleware, 1)
+  @UseGuards(JWTAuthGuard2, 4)
   @StatusCode(200)
   public async getUsers(
     @Ctx()
@@ -75,9 +77,9 @@ export class UserController {
       // throw new Error("This is a test error to demonstrate global exception handling");
       const userList: User[] = await this.userService.getUserLis();
       console.log(userList);
-      return HttpResponse.ok(userList); // new HttpResponse().status(345).body(userList);
+      // return HttpResponse.ok(userList); // new HttpResponse().status(345).body(userList);
       // return { message: "Users retrieved successfully", data: userList }; // @StatusCode(200)
-      // response.status(200).json({ message: "Users retrieved successfully", data: userList });
+      ctx.res.status(200).json({ message: 'Users retrieved successfully', data: userList });
     } catch (error) {
       // next(error);
       // This will be caught by the global exception handler

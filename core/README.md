@@ -339,6 +339,7 @@ import {
   Handler,
   HttpContext,
   HttpResponse,
+  NextFn,
   Request,
   UseGuards,
   UseInterceptors,
@@ -352,8 +353,9 @@ class ApiKeyGuard extends Guard {
 }
 
 class RequestLogger extends ExpressXMiddleware {
-  public use(ctx: HttpContext): void {
+  public use(ctx: HttpContext, next: NextFn): void {
     console.log(ctx.req.method, ctx.req.originalUrl);
+    next();
   }
 }
 
@@ -382,7 +384,9 @@ export class HealthController {
 }
 ```
 
-Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`. Priorities do not reorder the pipeline stages. Guards and middleware share one ascending-priority list and can be ordered against their own type or each other. Route-interceptor priorities are scoped only to route interceptors.
+Every route middleware must call `next()` to continue to the next guard, middleware, route interceptor, or controller. Omitting `next()` stops the remaining route pipeline and skips automatic response serialization, so the middleware should send a response itself when it short-circuits. The callback uses the exported Express `NextFn` type: call `next()` without returning it, or call `next(error)` to delegate to the mounted Express error pipeline. Thrown errors continue through ExpressX's interceptor and application exception-handler flow.
+
+Pipeline components can also receive an optional numeric priority after the class, for example `@UseGuards(ApiKeyGuard, 10)`. Priorities do not reorder the pipeline stages. Guards and middleware share one ascending-priority list and can be ordered against their own type or each other. Route-interceptor priorities are scoped only to route interceptors. Classes listed in the same decorator call keep their written order when they share a priority.
 
 ```text
 Global interceptors: before

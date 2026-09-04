@@ -1,6 +1,6 @@
 import { MIDDLEWARES_METADATA } from '../common';
 import { logger } from '../logger/logger';
-import { parseArgs, pushWithPriority } from './utilities';
+import { parseArgs, pushManyWithPriority } from './utilities';
 
 export function UseMiddlewares(...args: unknown[]): MethodDecorator {
   return (target: Object, key: string | symbol) => {
@@ -10,6 +10,6 @@ export function UseMiddlewares(...args: unknown[]): MethodDecorator {
         `in method "${key as string}" of class "${target.constructor.name}"`,
       'Decorator',
     );
-    components.forEach((component) => pushWithPriority(target, key, MIDDLEWARES_METADATA, component));
+    pushManyWithPriority(target, key, MIDDLEWARES_METADATA, components);
   };
 }

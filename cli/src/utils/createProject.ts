@@ -257,13 +257,15 @@ function createMiddlewareTemplate(): string {
   ExpressXLogger,
   ExpressXMiddleware,
   HttpContext,
+  NextFn,
 } from '@expressxjs/core';
 
 const logger = new ExpressXLogger();
 
 export class RequestLoggerMiddleware extends ExpressXMiddleware {
-  public use(ctx: HttpContext): void {
+  public use(ctx: HttpContext, next: NextFn): void {
     logger.info(\`[\${ctx.req.method}] \${ctx.req.originalUrl}\`, 'Request');
+    next();
   }
 }
 `;
